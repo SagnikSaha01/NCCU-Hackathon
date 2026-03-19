@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
 import { scenarios, zones } from './data/scenarios.js';
@@ -121,5 +122,5 @@ app.get('/api/investigate/:scenarioKey', async (req, res) => {
   res.end();
 });
 
-const PORT = 3002;
+const PORT = 3001;
 app.listen(PORT, () => console.log(`ContaminationHunter backend running on http://localhost:${PORT}`));

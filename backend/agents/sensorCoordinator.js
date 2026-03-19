@@ -1,29 +1,47 @@
+import { invokeAgent, extractJSON } from '../services/orchestrateClient.js';
+
+const AGENT_ID = process.env.AGENT_SENSOR_COORDINATOR;
+
 export async function runSensorCoordinator(scenario, readings) {
-  const elevated = [];
-  const critical = [];
+  const readingsSummary = Object.entries(readings)
+    .map(([zone, r]) => `${zone}: ${r.particles} p/m³ (trend: ${r.trend}, size: ${r.particleSize})`)
+    .join('\n');
 
-  for (const [zoneId, data] of Object.entries(readings)) {
-    if (data.particles > 1.0) {
-      critical.push({ zone: zoneId, particles: data.particles, trend: data.trend });
-    } else if (data.particles > 0.3) {
-      elevated.push({ zone: zoneId, particles: data.particles, trend: data.trend });
-    }
-  }
+  const prompt = `
+You are receiving live particle sensor readings from 8 cleanroom zones.
 
-  const allAffected = [...critical, ...elevated];
-  const particleSizes = [...new Set(Object.values(readings).map(r => r.particleSize))];
+READINGS:
+${readingsSummary}
+
+Classify each zone as NORMAL (<0.3), ELEVATED (0.3-1.0), or CRITICAL (>1.0) p/m³.
+Identify all affected zones, the highest reading, and dominant particle size.
+
+Respond with a JSON object in this exact shape:
+{
+  "criticalZones": [{"zone": "zone-id", "particles": 0.0, "trend": "..."}],
+  "elevatedZones": [{"zone": "zone-id", "particles": 0.0, "trend": "..."}],
+  "totalAffected": 0,
+  "dominantSize": "0.3µm",
+  "summary": "one sentence summary"
+}
+`.trim();
+
+  const raw    = await invokeAgent(AGENT_ID, prompt);
+  console.log('\n[SensorCoordinator] RAW RESPONSE FROM ORCHESTRATE:\n', raw, '\n');
+  const parsed = extractJSON(raw);
+  console.log('[SensorCoordinator] PARSED:', JSON.stringify(parsed, null, 2));
 
   return {
     agent: 'SensorCoordinator',
     status: 'complete',
-    summary: `Aggregated ${Object.keys(readings).length} zone sensors. Detected ${critical.length} critical zones and ${elevated.length} elevated zones.`,
+    summary: parsed.summary ?? `Detected ${parsed.criticalZones?.length ?? 0} critical and ${parsed.elevatedZones?.length ?? 0} elevated zones.`,
     details: {
-      criticalZones: critical,
-      elevatedZones: elevated,
-      totalAffected: allAffected.length,
-      particleSizes,
-      dominantSize: particleSizes[0],
-      alertTime: new Date().toISOString()
+      criticalZones: parsed.criticalZones ?? [],
+      elevatedZones: parsed.elevatedZones ?? [],
+      totalAffected: parsed.totalAffected ?? 0,
+      particleSizes: [parsed.dominantSize ?? '0.3µm'],
+      dominantSize:  parsed.dominantSize  ?? '0.3µm',
+      alertTime:     new Date().toISOString(),
     }
   };
 }

@@ -1,51 +1,60 @@
+import { invokeAgent, extractJSON } from '../services/orchestrateClient.js';
+
+const AGENT_ID = process.env.AGENT_SEVERITY;
+
 export async function runSeverityAgent(scenario, readings, previousOutput) {
   const { consistencyScore, proposedSource } = previousOutput.details;
 
-  const criticalZones = Object.entries(readings).filter(([, r]) => r.particles > 1.0);
-  const elevatedZones = Object.entries(readings).filter(([, r]) => r.particles > 0.3 && r.particles <= 1.0);
-
-  // High-value zones that affect lot quality
-  const highValueZones = ['lithography-bay', 'etch-chamber', 'deposition'];
-  const affectedHighValue = criticalZones.concat(elevatedZones)
-    .filter(([zoneId]) => highValueZones.includes(zoneId));
-
   const maxParticles = Math.max(...Object.values(readings).map(r => r.particles));
+  const readingsSummary = Object.entries(readings)
+    .map(([zone, r]) => `${zone}: ${r.particles} p/m³`)
+    .join('\n');
 
-  // Score risk
-  let severity, riskScore, lotValueAtRisk;
+  const prompt = `
+You are a risk assessment specialist for a semiconductor cleanroom.
 
-  if (maxParticles > 3.0 || affectedHighValue.length >= 2) {
-    severity = 'CRITICAL';
-    riskScore = 92;
-    lotValueAtRisk = '$2.4M (estimated 24 wafers in process)';
-  } else if (maxParticles > 1.5 || affectedHighValue.length === 1) {
-    severity = 'HIGH';
-    riskScore = 74;
-    lotValueAtRisk = '$850K (estimated 8 wafers at risk)';
-  } else if (maxParticles > 0.5) {
-    severity = 'MEDIUM';
-    riskScore = 45;
-    lotValueAtRisk = '$120K (no critical lots at risk)';
-  } else {
-    severity = 'LOW';
-    riskScore = 18;
-    lotValueAtRisk = 'Minimal — monitoring recommended';
-  }
+VERIFIED SOURCE ZONE: ${proposedSource}
+VERIFICATION CONSISTENCY SCORE: ${consistencyScore}%
+MAX PARTICLE READING: ${maxParticles.toFixed(2)} p/m³
+
+ALL ZONE READINGS:
+${readingsSummary}
+
+HIGH VALUE PRODUCTION ZONES (wafer lots at risk): lithography-bay, etch-chamber, deposition
+
+Assign severity using these rules:
+- CRITICAL: max reading >3.0 p/m³ OR 2+ high-value zones affected → lot value at risk ~$2.4M
+- HIGH: max reading >1.5 p/m³ OR 1 high-value zone affected → lot value at risk ~$850K
+- MEDIUM: max reading >0.5 p/m³, no high-value zones → lot value at risk ~$120K
+- LOW: max reading <0.5 p/m³ → minimal risk
+
+ISO Class 5 threshold: 0.5 p/m³. Above this is a violation.
+
+Respond with a JSON object in this exact shape:
+{
+  "severity": "CRITICAL" or "HIGH" or "MEDIUM" or "LOW",
+  "riskScore": 0-100,
+  "lotValueAtRisk": "dollar amount string",
+  "isoClassViolation": "YES — ISO Class 5 threshold exceeded" or "NO",
+  "recommendImmediateAction": true or false,
+  "summary": "one sentence summary"
+}
+`.trim();
+
+  const raw    = await invokeAgent(AGENT_ID, prompt);
+  const parsed = extractJSON(raw);
 
   return {
     agent: 'SeverityAgent',
     status: 'complete',
-    summary: `Risk assessment complete. Severity: ${severity}. Risk score: ${riskScore}/100. ${affectedHighValue.length} high-value production zone(s) affected.`,
+    summary: parsed.summary ?? `Severity: ${parsed.severity}. Risk score: ${parsed.riskScore}/100.`,
     details: {
-      severity,
-      riskScore,
-      lotValueAtRisk,
-      criticalZoneCount: criticalZones.length,
-      elevatedZoneCount: elevatedZones.length,
-      affectedHighValueZones: affectedHighValue.map(([id]) => id),
-      maxParticleReading: maxParticles.toFixed(2),
-      isoClassViolation: maxParticles > 0.5 ? 'YES — ISO Class 5 threshold exceeded' : 'NO',
-      recommendImmediateAction: severity === 'CRITICAL' || severity === 'HIGH'
+      severity:               parsed.severity               ?? 'HIGH',
+      riskScore:              parsed.riskScore              ?? 70,
+      lotValueAtRisk:         parsed.lotValueAtRisk         ?? 'Unknown',
+      isoClassViolation:      parsed.isoClassViolation      ?? 'NO',
+      recommendImmediateAction: parsed.recommendImmediateAction ?? false,
+      maxParticleReading:     maxParticles.toFixed(2),
     }
   };
 }

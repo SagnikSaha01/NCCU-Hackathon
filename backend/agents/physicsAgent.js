@@ -1,62 +1,47 @@
-// Airflow: LEFT TO RIGHT (col 0 → col 3)
-// To trace source: go UPSTREAM (right → left)
+import { invokeAgent, extractJSON } from '../services/orchestrateClient.js';
+
+const AGENT_ID = process.env.AGENT_PHYSICS;
+
 export async function runPhysicsAgent(scenario, readings, previousOutput) {
-  const { criticalZones, elevatedZones } = previousOutput.details;
+  const { criticalZones = [], elevatedZones = [] } = previousOutput.details;
   const allAffected = [...criticalZones, ...elevatedZones];
 
-  // Find the leftmost affected zone per row (most upstream = likely source)
-  const zoneMap = {
-    'lithography-bay': { row: 0, col: 0 },
-    'etch-chamber': { row: 0, col: 1 },
-    'deposition': { row: 0, col: 2 },
-    'cmp': { row: 0, col: 3 },
-    'metrology': { row: 1, col: 0 },
-    'clean-station': { row: 1, col: 1 },
-    'hvac-unit-7': { row: 1, col: 2 },
-    'chemical-storage': { row: 1, col: 3 }
-  };
+  const prompt = `
+You are a fluid dynamics expert analyzing contamination in a semiconductor cleanroom.
+Airflow moves strictly LEFT TO RIGHT across the fab floor.
 
-  // Sort affected zones by column (upstream = lower col = potential source)
-  const withPositions = allAffected
-    .filter(z => zoneMap[z.zone])
-    .map(z => ({ ...z, ...zoneMap[z.zone] }))
-    .sort((a, b) => a.col - b.col);
+FAB FLOOR LAYOUT (4 columns x 2 rows):
+Row 1: lithography-bay (col 0), etch-chamber (col 1), deposition (col 2), cmp (col 3)
+Row 2: metrology (col 0), clean-station (col 1), hvac-unit-7 (col 2), chemical-storage (col 3)
 
-  // Determine spread pattern first
-  const maxCol = Math.max(...withPositions.map(z => z.col));
-  const minCol = Math.min(...withPositions.map(z => z.col));
-  const spread = maxCol - minCol <= 1 ? 'localized' : 'unidirectional-right';
+AFFECTED ZONES FROM SENSOR DATA:
+${JSON.stringify(allAffected, null, 2)}
 
-  // For unidirectional spread: if the highest-particle zone is at the rightmost column,
-  // it is likely the source (chemical outgassing or local tool issue at high col).
-  // For truly unidirectional flow contamination: highest particle count zone is source.
-  const highestParticleZone = [...withPositions].sort((a, b) => b.particles - a.particles)[0];
+Since airflow moves left to right, contamination spreads from lower columns to higher columns.
+Trace upstream to find the source — the affected zone with the LOWEST column number is most likely the origin.
 
-  // Source heuristic: if highest-reading zone is NOT at the far downstream end,
-  // prefer leftmost (most upstream). Otherwise trust the highest reading.
-  const leftmostZone = withPositions[0];
-  const mostUpstream = (highestParticleZone && highestParticleZone.particles > leftmostZone.particles * 2)
-    ? highestParticleZone
-    : leftmostZone;
+Respond with a JSON object in this exact shape:
+{
+  "spreadPattern": "localized" or "unidirectional-right",
+  "upstreamSource": "zone-id",
+  "candidateZones": ["zone-id-1", "zone-id-2"],
+  "summary": "one sentence summary"
+}
+`.trim();
 
-  const candidateZones = [...new Set([mostUpstream.zone, highestParticleZone?.zone])].filter(Boolean).slice(0, 2);
+  const raw    = await invokeAgent(AGENT_ID, prompt);
+  const parsed = extractJSON(raw);
 
   return {
     agent: 'PhysicsAgent',
     status: 'complete',
-    summary: `Traced contamination upstream against laminar flow. Most upstream affected zone: ${mostUpstream?.zone || 'unknown'}. Spread pattern: ${spread}.`,
+    summary: parsed.summary ?? `Traced source upstream to ${parsed.upstreamSource}. Spread: ${parsed.spreadPattern}.`,
     details: {
-      spreadPattern: spread,
-      upstreamSource: mostUpstream?.zone,
-      candidateZones,
-      flowDirection: 'LEFT_TO_RIGHT',
-      airflowVelocity: '0.45 m/s (ISO Class 5)',
-      upstreamAnalysis: withPositions.map(z => ({
-        zone: z.zone,
-        col: z.col,
-        particles: z.particles,
-        upstreamProbability: `${Math.round((1 - z.col * 0.15) * 100)}%`
-      }))
+      spreadPattern:    parsed.spreadPattern  ?? 'unidirectional-right',
+      upstreamSource:   parsed.upstreamSource ?? allAffected[0]?.zone,
+      candidateZones:   parsed.candidateZones ?? [],
+      flowDirection:    'LEFT_TO_RIGHT',
+      airflowVelocity:  '0.45 m/s (ISO Class 5)',
     }
   };
 }
