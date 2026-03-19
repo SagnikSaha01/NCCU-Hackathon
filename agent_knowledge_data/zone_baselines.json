@@ -1,0 +1,68 @@
+{
+  "baselines": {
+    "lithography-bay": {
+      "avg_30d": 0.062,
+      "avg_90d": 0.065,
+      "daily_min": 0.051,
+      "daily_max": 0.088,
+      "std_dev": 0.004,
+      "spike_threshold": 0.186
+    },
+    "etch-chamber": {
+      "avg_30d": 0.095,
+      "avg_90d": 0.092,
+      "daily_min": 0.070,
+      "daily_max": 0.115,
+      "std_dev": 0.009,
+      "spike_threshold": 0.285
+    },
+    "deposition": {
+      "avg_30d": 0.088,
+      "avg_90d": 0.089,
+      "daily_min": 0.065,
+      "daily_max": 0.110,
+      "std_dev": 0.007,
+      "spike_threshold": 0.264
+    },
+    "cmp": {
+      "avg_30d": 0.112,
+      "avg_90d": 0.115,
+      "daily_min": 0.090,
+      "daily_max": 0.145,
+      "std_dev": 0.012,
+      "spike_threshold": 0.336
+    },
+    "metrology": {
+      "avg_30d": 0.055,
+      "avg_90d": 0.054,
+      "daily_min": 0.050,
+      "daily_max": 0.068,
+      "std_dev": 0.002,
+      "spike_threshold": 0.165
+    },
+    "clean-station": {
+      "avg_30d": 0.058,
+      "avg_90d": 0.060,
+      "daily_min": 0.051,
+      "daily_max": 0.075,
+      "std_dev": 0.003,
+      "spike_threshold": 0.174
+    },
+    "hvac-unit-7": {
+      "avg_30d": 0.105,
+      "avg_90d": 0.098,
+      "daily_min": 0.085,
+      "daily_max": 0.150,
+      "std_dev": 0.015,
+      "spike_threshold": 0.315
+    },
+    "chemical-storage": {
+      "avg_30d": 0.072,
+      "avg_90d": 0.075,
+      "daily_min": 0.060,
+      "daily_max": 0.095,
+      "std_dev": 0.006,
+      "spike_threshold": 0.216
+    }
+  }
+}

@@ -1,0 +1,86 @@
+{
+  "maintenance_logs": [
+    {
+      "zone": "hvac-unit-7",
+      "records": [
+        {"date": "2024-07-10", "technician": "M. Chen", "work_performed": "Quarterly HEPA Filter Inspection", "parts_replaced": "None", "pass_fail": "PASS", "notes": "Filter at 68% capacity. Flagged for early replacement — no action taken."},
+        {"date": "2024-10-22", "technician": "J. Doe", "work_performed": "Scheduled Filter Replacement", "parts_replaced": "HEPA-X100", "pass_fail": "PASS", "notes": "Replaced 12 days late due to parts backorder."},
+        {"date": "2025-01-15", "technician": "M. Chen", "work_performed": "Emergency Filter Swap + Full Unit Inspection", "parts_replaced": "HEPA-X100, Drive Belt, Motor Capacitor", "pass_fail": "PASS", "notes": "Emergency response after major failure event EVT-2025-01-14. Unit was 92 days overdue. Recommended monthly checks going forward — not implemented."},
+        {"date": "2025-04-20", "technician": "J. Doe", "work_performed": "Quarterly Inspection", "parts_replaced": "None", "pass_fail": "PASS", "notes": "Routine check, completed 10 days late. Filter at 55% capacity."},
+        {"date": "2025-08-01", "technician": "M. Chen", "work_performed": "Motor Lubrication + Belt Check", "parts_replaced": "Drive Belt", "pass_fail": "PASS", "notes": "Completed 15 days late. Pattern of late servicing noted by technician but not escalated."},
+        {"date": "2025-11-18", "technician": "J. Doe", "work_performed": "Filter Inspection", "parts_replaced": "Pre-filter screen", "pass_fail": "PASS", "notes": "Main HEPA filter approaching end of service life. Replacement scheduled for 90-day mark."}
+      ]
+    },
+    {
+      "zone": "etch-chamber",
+      "records": [
+        {"date": "2024-08-05", "technician": "A. Smith", "work_performed": "O-Ring Inspection + Chamber Clean", "parts_replaced": "Viton O-Rings (x4)", "pass_fail": "PASS", "notes": "Standard preventive maintenance. No anomalies."},
+        {"date": "2024-11-14", "technician": "K. Varma", "work_performed": "Dry Etch Tool #3 Full PM", "parts_replaced": "Chamber Liner, Focus Ring", "pass_fail": "PASS", "notes": "All seals within spec. Tool back online within 4 hours."},
+        {"date": "2025-02-10", "technician": "A. Smith", "work_performed": "Seal Inspection", "parts_replaced": "Viton O-Rings (x2)", "pass_fail": "PASS", "notes": "Standard preventive maintenance. Turbo pump showing early wear signs — logged."},
+        {"date": "2025-05-18", "technician": "K. Varma", "work_performed": "Emergency Repair — Turbo Pump Seal Breach", "parts_replaced": "Turbo Pump Seal, Gate Valve Gasket", "pass_fail": "PASS", "notes": "Emergency response to EVT-2025-05-18. Root cause: accelerated wear on turbo pump seal consistent with Feb observation. Tool offline 6 hours."},
+        {"date": "2025-09-12", "technician": "A. Smith", "work_performed": "Chamber Cleaning + Shield Replacement", "parts_replaced": "Shield Set, Upper Electrode", "pass_fail": "PASS", "notes": "Standard interval. All seals re-inspected post-emergency repair — no concerns."},
+        {"date": "2026-01-08", "technician": "K. Varma", "work_performed": "Full PM — Dry Etch Tool #3", "parts_replaced": "Viton O-Rings (x4), Chamber Liner", "pass_fail": "PASS", "notes": "Completed 2 days late. Seal torque values slightly below spec on lower chamber — retorqued. Currently 62 days into 60-day service cycle."}
+      ]
+    },
+    {
+      "zone": "lithography-bay",
+      "records": [
+        {"date": "2024-09-03", "technician": "R. Patel", "work_performed": "Exposure Unit A Full PM", "parts_replaced": "Lens Purge Filter", "pass_fail": "PASS", "notes": "Annual PM. Photoresist track exhaust flow rate slightly reduced — cleaned."},
+        {"date": "2024-12-15", "technician": "R. Patel", "work_performed": "Photoresist Track Exhaust Inspection", "parts_replaced": "Exhaust Fan Belt", "pass_fail": "PASS", "notes": "Follow-up from September observation. Belt replaced, exhaust flow restored to spec."},
+        {"date": "2025-03-20", "technician": "L. Torres", "work_performed": "Quarterly PM — Exposure Unit A", "parts_replaced": "None", "pass_fail": "PASS", "notes": "All systems nominal. No issues."},
+        {"date": "2025-07-08", "technician": "R. Patel", "work_performed": "Reticle Stage Inspection + Clean", "parts_replaced": "Stage Air Bearing Filter", "pass_fail": "PASS", "notes": "Routine. Air bearing filter replaced at 45-day interval."},
+        {"date": "2025-11-22", "technician": "L. Torres", "work_performed": "Annual Exposure Unit A Full PM", "parts_replaced": "Lens Purge Filter, Illumination Sensor", "pass_fail": "PASS", "notes": "All values within OEM spec. Next PM due Q1 2026."}
+      ]
+    },
+    {
+      "zone": "deposition",
+      "records": [
+        {"date": "2024-08-18", "technician": "B. Nguyen", "work_performed": "CVD Reactor #2 Chamber Clean", "parts_replaced": "Showerhead, Chamber Liner", "pass_fail": "PASS", "notes": "Routine wet clean. Deposition rate back to nominal after cleaning."},
+        {"date": "2024-11-30", "technician": "B. Nguyen", "work_performed": "Load Lock Seal Inspection", "parts_replaced": "Load Lock Door O-Ring", "pass_fail": "PASS", "notes": "Seal showing minor wear — replaced proactively."},
+        {"date": "2025-02-14", "technician": "S. Kim", "work_performed": "CVD Reactor #2 Full PM", "parts_replaced": "Showerhead, Liner, Heater", "pass_fail": "PASS", "notes": "Annual PM. All feedline connections re-torqued and leak checked."},
+        {"date": "2025-06-01", "technician": "B. Nguyen", "work_performed": "Flange Tightening + Seal Integrity Test", "parts_replaced": "Conflat Gasket (x2)", "pass_fail": "PASS", "notes": "Follow-up from EVT-2025-03-29 radial breach event. All flanges within spec post-repair."},
+        {"date": "2025-10-09", "technician": "S. Kim", "work_performed": "Quarterly Inspection", "parts_replaced": "None", "pass_fail": "PASS", "notes": "No anomalies. Currently 30 days into 90-day cycle."}
+      ]
+    },
+    {
+      "zone": "cmp",
+      "records": [
+        {"date": "2024-07-22", "technician": "T. Williams", "work_performed": "CMP Polisher Full PM", "parts_replaced": "Polishing Pad, Retaining Ring", "pass_fail": "PASS", "notes": "Routine pad replacement at 500-wafer interval. Slurry delivery lines flushed."},
+        {"date": "2024-10-14", "technician": "T. Williams", "work_performed": "Slurry Delivery Seal Inspection", "parts_replaced": "Slurry Delivery Seal", "pass_fail": "PASS", "notes": "Seal replaced following EVT-2024-002. Root cause: gradual seal fatigue from abrasive slurry exposure."},
+        {"date": "2025-01-28", "technician": "D. Park", "work_performed": "Quarterly PM", "parts_replaced": "Polishing Pad, Conditioning Disk", "pass_fail": "PASS", "notes": "Standard interval. All fluid connections inspected — no leaks."},
+        {"date": "2025-05-10", "technician": "T. Williams", "work_performed": "CMP Polisher Full PM", "parts_replaced": "Retaining Ring, Membrane", "pass_fail": "PASS", "notes": "Completed on schedule. Slurry pump seals inspected and within spec."},
+        {"date": "2025-09-03", "technician": "D. Park", "work_performed": "Quarterly Inspection", "parts_replaced": "None", "pass_fail": "PASS", "notes": "No issues. Currently 55 days into 90-day cycle."}
+      ]
+    },
+    {
+      "zone": "metrology",
+      "records": [
+        {"date": "2024-08-30", "technician": "F. Rossi", "work_performed": "CD-SEM Annual Calibration + PM", "parts_replaced": "Electron Gun Filament", "pass_fail": "PASS", "notes": "Annual calibration completed. Measurement accuracy verified against NIST standards."},
+        {"date": "2024-12-10", "technician": "F. Rossi", "work_performed": "Vacuum System Inspection", "parts_replaced": "Roughing Pump Oil", "pass_fail": "PASS", "notes": "Routine. Vacuum levels nominal."},
+        {"date": "2025-03-15", "technician": "F. Rossi", "work_performed": "CD-SEM Quarterly PM", "parts_replaced": "Anti-vibration Mounts", "pass_fail": "PASS", "notes": "Mounts replaced after vibration signature change detected. Tool currently 10 days into 90-day cycle."},
+        {"date": "2025-07-20", "technician": "F. Rossi", "work_performed": "Detector Cleaning + Calibration Check", "parts_replaced": "None", "pass_fail": "PASS", "notes": "All measurement parameters within spec. No issues."},
+        {"date": "2025-11-05", "technician": "F. Rossi", "work_performed": "Annual Full PM", "parts_replaced": "Electron Gun Filament, Stage Encoder", "pass_fail": "PASS", "notes": "Annual PM. Stage encoder replaced after drift detected. All calibrations reset to factory spec."}
+      ]
+    },
+    {
+      "zone": "clean-station",
+      "records": [
+        {"date": "2024-07-15", "technician": "C. Martinez", "work_performed": "Wet Bench #4 Full PM", "parts_replaced": "Chemical Pump Seals, Drain Valve", "pass_fail": "PASS", "notes": "Quarterly PM. All chemical delivery lines flushed and pressure tested."},
+        {"date": "2024-10-28", "technician": "C. Martinez", "work_performed": "DI Water Heater Inspection", "parts_replaced": "Heater Element", "pass_fail": "PASS", "notes": "Heater element replaced at end of service life. No contamination events."},
+        {"date": "2025-02-22", "technician": "C. Martinez", "work_performed": "Emergency Repair — DI Water Heater Gasket", "parts_replaced": "Heater Gasket, Inlet Seal", "pass_fail": "PASS", "notes": "Emergency repair following EVT-2025-008. Gasket failure caused minor outgassing. Resolved within 3 hours."},
+        {"date": "2025-06-14", "technician": "H. Lee", "work_performed": "Wet Bench #4 Quarterly PM", "parts_replaced": "Chemical Pump Seals", "pass_fail": "PASS", "notes": "Standard interval. Currently 20 days into 60-day cycle."},
+        {"date": "2025-10-01", "technician": "C. Martinez", "work_performed": "Full Bench Inspection + Chemical Line Flush", "parts_replaced": "None", "pass_fail": "PASS", "notes": "All chemical delivery pressures nominal. No anomalies detected."}
+      ]
+    },
+    {
+      "zone": "chemical-storage",
+      "records": [
+        {"date": "2024-08-12", "technician": "E. Johnson", "work_performed": "Cabinet Seal Inspection + Exhaust Check", "parts_replaced": "Cabinet Door Gasket (x2)", "pass_fail": "PASS", "notes": "Quarterly inspection. Two gaskets showing early wear — replaced proactively."},
+        {"date": "2024-11-20", "technician": "E. Johnson", "work_performed": "Chemical Inventory Audit + Container Inspection", "parts_replaced": "None", "pass_fail": "PASS", "notes": "All containers within expiry. No seal degradation observed."},
+        {"date": "2025-02-05", "technician": "E. Johnson", "work_performed": "Exhaust Fan Repair + Container Reseal", "parts_replaced": "Exhaust Fan Motor, Cabinet Seals (x3)", "pass_fail": "PASS", "notes": "Repair following EVT-2024-11-05 outgassing event. Root cause: exhaust fan motor failure combined with aged container seals."},
+        {"date": "2025-05-30", "technician": "H. Lee", "work_performed": "Quarterly Cabinet Inspection", "parts_replaced": "Ventilation Duct Seal", "pass_fail": "PASS", "notes": "Routine. One duct seal replaced. Exhaust flow rates verified within spec."},
+        {"date": "2025-09-18", "technician": "E. Johnson", "work_performed": "Annual Chemical Storage Full PM", "parts_replaced": "All Cabinet Door Gaskets (x6), Exhaust Damper", "pass_fail": "PASS", "notes": "Annual PM. All gaskets replaced on schedule. Currently 78 days into 90-day cycle."}
+      ]
+    }
+  ]
+}
