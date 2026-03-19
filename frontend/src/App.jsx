@@ -5,6 +5,7 @@ import DiagnosisCard from './components/DiagnosisCard.jsx';
 import SensorStatus from './components/SensorStatus.jsx';
 import Timeline from './components/Timeline.jsx';
 import ScenarioButtons from './components/ScenarioButtons.jsx';
+import AgentFlowMap from './components/AgentFlowMap.jsx';
 
 const BASELINE_READINGS = {
   'lithography-bay': { particles: 0.07, trend: 'stable', particleSize: '0.3µm' },
@@ -17,10 +18,17 @@ const BASELINE_READINGS = {
   'chemical-storage':{ particles: 0.06, trend: 'stable', particleSize: '0.3µm' },
 };
 
-const TABS = [
-  { id: 'feed',      label: 'Agent Investigation', icon: '🤖' },
-  { id: 'sensors',   label: 'Sensor Status',       icon: '📡' },
-  { id: 'diagnosis', label: 'Diagnosis',            icon: '🔬' },
+// Right-panel tabs (only shown on Cleanroom view)
+const RIGHT_TABS = [
+  { id: 'feed',      label: 'Investigation', icon: '🤖' },
+  { id: 'sensors',   label: 'Sensors',       icon: '📡' },
+  { id: 'diagnosis', label: 'Diagnosis',     icon: '🔬' },
+];
+
+// Top-level views
+const VIEWS = [
+  { id: 'cleanroom', label: 'Cleanroom Floor', icon: '🏭' },
+  { id: 'pipeline',  label: 'Agent Pipeline',  icon: '🔀' },
 ];
 
 export default function App() {
@@ -31,6 +39,7 @@ export default function App() {
   const [severity, setSeverity] = useState(null);
   const [isInvestigating, setIsInvestigating] = useState(false);
   const [isComplete, setIsComplete] = useState(false);
+  const [activeView, setActiveView] = useState('cleanroom');
   const [activeTab, setActiveTab] = useState('feed');
   const esRef = useRef(null);
 
@@ -152,6 +161,24 @@ export default function App() {
           </div>
           <div className="header-badge">IBM watsonx Orchestrate</div>
         </div>
+
+        {/* ── Top-level view switcher (centred in header) ── */}
+        <div className="main-view-tabs">
+          {VIEWS.map(v => (
+            <button
+              key={v.id}
+              className={`main-view-btn ${activeView === v.id ? 'active' : ''}`}
+              onClick={() => setActiveView(v.id)}
+            >
+              <span>{v.icon}</span>
+              <span>{v.label}</span>
+              {v.id === 'pipeline' && isInvestigating && (
+                <span className="main-view-pip" />
+              )}
+            </button>
+          ))}
+        </div>
+
         <div className="header-right">
           <div className="header-status">
             <div className="status-dot pulse" />
@@ -180,89 +207,97 @@ export default function App() {
         </div>
       </header>
 
-      {/* ─── Main Layout: Left=Fab, Right=Tabs ─── */}
-      <div className="main-layout">
+      {/* ─── VIEW: Cleanroom Floor ─── */}
+      {activeView === 'cleanroom' && (
+        <div className="main-layout">
 
-        {/* ── LEFT: Cleanroom Floor ── */}
-        <div className="fab-panel">
-          <div className="panel-header">
-            <span className="panel-icon">🏭</span>
-            <span className="panel-title">Cleanroom Floor — ISO Class 5</span>
-            <span style={{ marginLeft: 'auto', fontSize: '0.65rem', color: 'var(--text-muted)', fontFamily: 'JetBrains Mono, monospace' }}>
-              Unidirectional Laminar Flow →
-            </span>
+          {/* ── LEFT: Cleanroom Floor ── */}
+          <div className="fab-panel">
+            <div className="panel-header">
+              <span className="panel-icon">🏭</span>
+              <span className="panel-title">Cleanroom Floor — ISO Class 5</span>
+              <span style={{ marginLeft: 'auto', fontSize: '0.65rem', color: 'var(--text-muted)', fontFamily: 'JetBrains Mono, monospace' }}>
+                Unidirectional Laminar Flow →
+              </span>
+            </div>
+
+            <div className="scenario-strip">
+              <span className="scenario-strip-label">TRIGGER SCENARIO:</span>
+              <ScenarioButtons
+                activeScenario={activeScenario}
+                onSelect={triggerScenario}
+                disabled={isInvestigating}
+                horizontal
+              />
+            </div>
+
+            <div className="fab-map-fill">
+              <FabMap readings={readings} activeScenario={activeScenario} />
+            </div>
+
+            <div className="airflow-footer">
+              <span className="airflow-arrow">→</span>
+              <span>Airflow direction: left to right (0.45 m/s)</span>
+              <span className="airflow-sep">·</span>
+              <span className="airflow-dot" style={{ background: '#22c55e' }} />Normal
+              <span className="airflow-sep">·</span>
+              <span className="airflow-dot" style={{ background: '#eab308' }} />Elevated
+              <span className="airflow-sep">·</span>
+              <span className="airflow-dot" style={{ background: '#ef4444' }} />Critical
+            </div>
           </div>
 
-          {/* Scenario buttons — horizontal strip */}
-          <div className="scenario-strip">
-            <span className="scenario-strip-label">TRIGGER SCENARIO:</span>
-            <ScenarioButtons
-              activeScenario={activeScenario}
-              onSelect={triggerScenario}
-              disabled={isInvestigating}
-              horizontal
-            />
-          </div>
+          {/* ── RIGHT: Tabbed Panel ── */}
+          <div className="tab-panel">
+            <div className="tab-bar">
+              {RIGHT_TABS.map(tab => (
+                <button
+                  key={tab.id}
+                  className={`tab-btn ${activeTab === tab.id ? 'active' : ''}`}
+                  onClick={() => setActiveTab(tab.id)}
+                >
+                  <span className="tab-icon">{tab.icon}</span>
+                  <span>{tab.label}</span>
+                  {tab.id === 'feed' && completedAgents > 0 && (
+                    <span className="tab-badge">{completedAgents}/7</span>
+                  )}
+                  {tab.id === 'diagnosis' && diagnosis && (
+                    <span className="tab-badge tab-badge-green">NEW</span>
+                  )}
+                </button>
+              ))}
+            </div>
 
-          {/* Big fab map */}
-          <div className="fab-map-fill">
-            <FabMap readings={readings} activeScenario={activeScenario} />
-          </div>
-
-          <div className="airflow-footer">
-            <span className="airflow-arrow">→</span>
-            <span>Airflow direction: left to right (0.45 m/s)</span>
-            <span className="airflow-sep">·</span>
-            <span className="airflow-dot" style={{ background: '#22c55e' }} />Normal
-            <span className="airflow-sep">·</span>
-            <span className="airflow-dot" style={{ background: '#eab308' }} />Elevated
-            <span className="airflow-sep">·</span>
-            <span className="airflow-dot" style={{ background: '#ef4444' }} />Critical
+            <div className="tab-content">
+              {activeTab === 'feed' && (
+                <AgentFeed
+                  agentEvents={agentEvents}
+                  isInvestigating={isInvestigating && agentEvents.length === 0}
+                />
+              )}
+              {activeTab === 'sensors' && (
+                <SensorStatus readings={readings} />
+              )}
+              {activeTab === 'diagnosis' && (
+                <DiagnosisCard
+                  diagnosis={diagnosisWithDetails}
+                  severity={severity}
+                />
+              )}
+            </div>
           </div>
         </div>
+      )}
 
-        {/* ── RIGHT: Tabbed Panel ── */}
-        <div className="tab-panel">
-          {/* Tab bar */}
-          <div className="tab-bar">
-            {TABS.map(tab => (
-              <button
-                key={tab.id}
-                className={`tab-btn ${activeTab === tab.id ? 'active' : ''}`}
-                onClick={() => setActiveTab(tab.id)}
-              >
-                <span className="tab-icon">{tab.icon}</span>
-                <span>{tab.label}</span>
-                {tab.id === 'feed' && completedAgents > 0 && (
-                  <span className="tab-badge">{completedAgents}/7</span>
-                )}
-                {tab.id === 'diagnosis' && diagnosis && (
-                  <span className="tab-badge tab-badge-green">NEW</span>
-                )}
-              </button>
-            ))}
-          </div>
-
-          {/* Tab content */}
-          <div className="tab-content">
-            {activeTab === 'feed' && (
-              <AgentFeed
-                agentEvents={agentEvents}
-                isInvestigating={isInvestigating && agentEvents.length === 0}
-              />
-            )}
-            {activeTab === 'sensors' && (
-              <SensorStatus readings={readings} />
-            )}
-            {activeTab === 'diagnosis' && (
-              <DiagnosisCard
-                diagnosis={diagnosisWithDetails}
-                severity={severity}
-              />
-            )}
-          </div>
+      {/* ─── VIEW: Agent Pipeline (full screen) ─── */}
+      {activeView === 'pipeline' && (
+        <div className="pipeline-view">
+          <AgentFlowMap
+            agentEvents={agentEvents}
+            isInvestigating={isInvestigating}
+          />
         </div>
-      </div>
+      )}
 
       {/* ─── Timeline Footer ─── */}
       <Timeline

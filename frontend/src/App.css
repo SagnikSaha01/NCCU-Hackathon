@@ -41,6 +41,7 @@ body {
   align-items: center;
   justify-content: space-between;
   flex-shrink: 0;
+  position: relative;
 }
 
 .header-left {
@@ -96,6 +97,66 @@ body {
   height: 8px;
   border-radius: 50%;
   background: var(--accent-green);
+}
+
+/* ─── Top-level View Switcher (header centre) ─── */
+.main-view-tabs {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 3px;
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.main-view-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 16px;
+  border-radius: 6px;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  font-weight: 600;
+  font-family: 'Inter', sans-serif;
+  cursor: pointer;
+  transition: all 0.15s;
+  position: relative;
+  white-space: nowrap;
+}
+
+.main-view-btn:hover {
+  color: var(--text-primary);
+  background: rgba(255,255,255,0.05);
+}
+
+.main-view-btn.active {
+  background: var(--accent-blue);
+  color: white;
+  box-shadow: 0 0 12px rgba(14,165,233,0.35);
+}
+
+/* Live activity pip shown on pipeline tab when investigating */
+.main-view-pip {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #eab308;
+  animation: pulse 1s ease-in-out infinite;
+}
+
+/* ─── Full-screen Pipeline View ─── */
+.pipeline-view {
+  flex: 1;
+  display: flex;
+  overflow: hidden;
+  min-height: 0;
 }
 
 /* ─── Main Layout: Left=Fab (60%), Right=Tabs (40%) ─── */
