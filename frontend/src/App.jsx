@@ -2,6 +2,7 @@ import React, { useState, useRef, useCallback } from 'react';
 import FabMap from './components/FabMap.jsx';
 import AgentFeed from './components/AgentFeed.jsx';
 import DiagnosisCard from './components/DiagnosisCard.jsx';
+import SensorStatus from './components/SensorStatus.jsx';
 import Timeline from './components/Timeline.jsx';
 import ScenarioButtons from './components/ScenarioButtons.jsx';
 
@@ -16,6 +17,12 @@ const BASELINE_READINGS = {
   'chemical-storage':{ particles: 0.06, trend: 'stable', particleSize: '0.3µm' },
 };
 
+const TABS = [
+  { id: 'feed',      label: 'Agent Investigation', icon: '🤖' },
+  { id: 'sensors',   label: 'Sensor Status',       icon: '📡' },
+  { id: 'diagnosis', label: 'Diagnosis',            icon: '🔬' },
+];
+
 export default function App() {
   const [activeScenario, setActiveScenario] = useState(null);
   const [readings, setReadings] = useState(BASELINE_READINGS);
@@ -24,16 +31,15 @@ export default function App() {
   const [severity, setSeverity] = useState(null);
   const [isInvestigating, setIsInvestigating] = useState(false);
   const [isComplete, setIsComplete] = useState(false);
+  const [activeTab, setActiveTab] = useState('feed');
   const esRef = useRef(null);
 
   const triggerScenario = useCallback((key) => {
-    // Close any existing EventSource
     if (esRef.current) {
       esRef.current.close();
       esRef.current = null;
     }
 
-    // Reset state
     setActiveScenario(key);
     setAgentEvents([]);
     setDiagnosis(null);
@@ -41,6 +47,7 @@ export default function App() {
     setIsComplete(false);
     setIsInvestigating(true);
     setReadings(BASELINE_READINGS);
+    setActiveTab('feed'); // Switch to feed when investigation starts
 
     const es = new EventSource(`/api/investigate/${key}`);
     esRef.current = es;
@@ -78,11 +85,12 @@ export default function App() {
             }
 
             if (event.agent === 'ResponseAgent' && event.details) {
-              // Merge severityAgent data we already have into diagnosis
-              setDiagnosis(prev => ({
+              setDiagnosis({
                 ...event.details.diagnosis,
                 recommendedActions: event.details.recommendedActions,
-              }));
+              });
+              // Auto-switch to diagnosis tab when complete
+              setTimeout(() => setActiveTab('diagnosis'), 800);
             }
             break;
 
@@ -108,15 +116,13 @@ export default function App() {
       }
     };
 
-    es.onerror = (err) => {
-      console.error('EventSource error:', err);
+    es.onerror = () => {
       setIsInvestigating(false);
       es.close();
       esRef.current = null;
     };
   }, []);
 
-  // Build diagnosis with severity from SeverityAgent output
   const diagnosisWithDetails = diagnosis
     ? {
         ...diagnosis,
@@ -128,6 +134,8 @@ export default function App() {
           ?.details?.isoClassViolation,
       }
     : null;
+
+  const completedAgents = agentEvents.filter(e => e.type === 'AGENT_COMPLETE').length;
 
   return (
     <div className="app">
@@ -149,87 +157,110 @@ export default function App() {
             <div className="status-dot pulse" />
             8 zones monitored
           </div>
-          <div className="header-status" style={{ marginLeft: 8 }}>
+          <div className="header-status">
             <div className="status-dot" style={{ background: '#a855f7' }} />
             7 agents ready
           </div>
           {isInvestigating && (
             <div className="header-badge" style={{ borderColor: '#eab308', color: '#eab308', background: 'rgba(234,179,8,0.15)' }}>
               <span className="spin" style={{ display: 'inline-block', marginRight: 4 }}>⟳</span>
-              INVESTIGATING
+              INVESTIGATING — {completedAgents}/7
             </div>
           )}
           {isComplete && (
             <div className="header-badge" style={{ borderColor: '#22c55e', color: '#22c55e', background: 'rgba(34,197,94,0.15)' }}>
-              COMPLETE
+              ✓ COMPLETE
             </div>
+          )}
+          {severity && (
+            <span className={`severity-badge severity-${severity}`} style={{ fontSize: '0.65rem', padding: '3px 10px' }}>
+              {severity}
+            </span>
           )}
         </div>
       </header>
 
-      {/* ─── Main Layout ─── */}
+      {/* ─── Main Layout: Left=Fab, Right=Tabs ─── */}
       <div className="main-layout">
-        {/* LEFT PANEL: Fab Map + Scenario Buttons */}
-        <div className="panel">
+
+        {/* ── LEFT: Cleanroom Floor ── */}
+        <div className="fab-panel">
           <div className="panel-header">
             <span className="panel-icon">🏭</span>
-            <span className="panel-title">Fab Floor Monitor</span>
+            <span className="panel-title">Cleanroom Floor — ISO Class 5</span>
+            <span style={{ marginLeft: 'auto', fontSize: '0.65rem', color: 'var(--text-muted)', fontFamily: 'JetBrains Mono, monospace' }}>
+              Unidirectional Laminar Flow →
+            </span>
           </div>
 
-          <ScenarioButtons
-            activeScenario={activeScenario}
-            onSelect={triggerScenario}
-            disabled={isInvestigating}
-          />
+          {/* Scenario buttons — horizontal strip */}
+          <div className="scenario-strip">
+            <span className="scenario-strip-label">TRIGGER SCENARIO:</span>
+            <ScenarioButtons
+              activeScenario={activeScenario}
+              onSelect={triggerScenario}
+              disabled={isInvestigating}
+              horizontal
+            />
+          </div>
 
-          <div className="fab-map-wrapper">
-            <div className="fab-title">CLEANROOM FLOOR — ISO CLASS 5</div>
-            <div className="fab-svg-container">
-              <FabMap readings={readings} activeScenario={activeScenario} />
-            </div>
-            <div className="airflow-label">
-              → Airflow: Unidirectional Laminar Flow (ISO Class 5)
-            </div>
+          {/* Big fab map */}
+          <div className="fab-map-fill">
+            <FabMap readings={readings} activeScenario={activeScenario} />
+          </div>
+
+          <div className="airflow-footer">
+            <span className="airflow-arrow">→</span>
+            <span>Airflow direction: left to right (0.45 m/s)</span>
+            <span className="airflow-sep">·</span>
+            <span className="airflow-dot" style={{ background: '#22c55e' }} />Normal
+            <span className="airflow-sep">·</span>
+            <span className="airflow-dot" style={{ background: '#eab308' }} />Elevated
+            <span className="airflow-sep">·</span>
+            <span className="airflow-dot" style={{ background: '#ef4444' }} />Critical
           </div>
         </div>
 
-        {/* CENTER PANEL: Agent Feed */}
-        <div className="panel">
-          <div className="panel-header">
-            <span className="panel-icon">🤖</span>
-            <span className="panel-title">Agent Investigation Feed</span>
-            {agentEvents.length > 0 && (
-              <span style={{
-                marginLeft: 'auto',
-                fontSize: '0.65rem',
-                color: 'var(--text-muted)',
-                fontFamily: 'JetBrains Mono, monospace'
-              }}>
-                {agentEvents.filter(e => e.type === 'AGENT_COMPLETE').length}/7 agents complete
-              </span>
-            )}
+        {/* ── RIGHT: Tabbed Panel ── */}
+        <div className="tab-panel">
+          {/* Tab bar */}
+          <div className="tab-bar">
+            {TABS.map(tab => (
+              <button
+                key={tab.id}
+                className={`tab-btn ${activeTab === tab.id ? 'active' : ''}`}
+                onClick={() => setActiveTab(tab.id)}
+              >
+                <span className="tab-icon">{tab.icon}</span>
+                <span>{tab.label}</span>
+                {tab.id === 'feed' && completedAgents > 0 && (
+                  <span className="tab-badge">{completedAgents}/7</span>
+                )}
+                {tab.id === 'diagnosis' && diagnosis && (
+                  <span className="tab-badge tab-badge-green">NEW</span>
+                )}
+              </button>
+            ))}
           </div>
-          <AgentFeed
-            agentEvents={agentEvents}
-            isInvestigating={isInvestigating && agentEvents.length === 0}
-          />
-        </div>
 
-        {/* RIGHT PANEL: Diagnosis */}
-        <div className="panel" style={{ borderRight: 'none' }}>
-          <div className="panel-header">
-            <span className="panel-icon">🔬</span>
-            <span className="panel-title">Diagnosis & Response Plan</span>
-            {severity && (
-              <span className={`severity-badge severity-${severity}`} style={{ marginLeft: 'auto', fontSize: '0.62rem', padding: '2px 8px' }}>
-                {severity}
-              </span>
+          {/* Tab content */}
+          <div className="tab-content">
+            {activeTab === 'feed' && (
+              <AgentFeed
+                agentEvents={agentEvents}
+                isInvestigating={isInvestigating && agentEvents.length === 0}
+              />
+            )}
+            {activeTab === 'sensors' && (
+              <SensorStatus readings={readings} />
+            )}
+            {activeTab === 'diagnosis' && (
+              <DiagnosisCard
+                diagnosis={diagnosisWithDetails}
+                severity={severity}
+              />
             )}
           </div>
-          <DiagnosisCard
-            diagnosis={diagnosisWithDetails}
-            severity={severity}
-          />
         </div>
       </div>
 

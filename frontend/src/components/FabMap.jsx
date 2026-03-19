@@ -1,9 +1,9 @@
 import React, { useRef, useEffect } from 'react';
 import * as d3 from 'd3';
 
-const ZONE_W = 150;
-const ZONE_H = 90;
-const GAP = 12;
+const ZONE_W = 210;
+const ZONE_H = 130;
+const GAP = 16;
 
 const zones = [
   { id: 'lithography-bay', name: 'Lithography Bay', row: 0, col: 0, abbr: 'LITHO' },
@@ -16,8 +16,8 @@ const zones = [
   { id: 'chemical-storage',name: 'Chemical Storage',row: 1, col: 3, abbr: 'CHEM' },
 ];
 
-const SVG_W = 4 * ZONE_W + 3 * GAP + 40;  // 688
-const SVG_H = 2 * ZONE_H + GAP + 60;       // 252
+const SVG_W = 4 * ZONE_W + 3 * GAP + 40;  // 928
+const SVG_H = 2 * ZONE_H + GAP + 70;       // 346
 
 function getZoneColor(particles) {
   if (particles > 1.0) return { fill: 'rgba(239,68,68,0.22)', stroke: '#ef4444' };
@@ -63,16 +63,16 @@ export default function FabMap({ readings = {} }) {
     // Row labels
     svg.append('text')
       .attr('x', 20)
-      .attr('y', 13)
-      .attr('font-size', '8px')
+      .attr('y', 14)
+      .attr('font-size', '10px')
       .attr('fill', '#475569')
       .attr('font-family', 'JetBrains Mono, monospace')
       .text('ROW 1');
 
     svg.append('text')
       .attr('x', 20)
-      .attr('y', ZONE_H + GAP + 13)
-      .attr('font-size', '8px')
+      .attr('y', ZONE_H + GAP + 14)
+      .attr('font-size', '10px')
       .attr('fill', '#475569')
       .attr('font-family', 'JetBrains Mono, monospace')
       .text('ROW 2');
@@ -98,12 +98,12 @@ export default function FabMap({ readings = {} }) {
         .attr('stroke', colors.stroke)
         .attr('stroke-width', particles > 1.0 ? 2 : 1.5);
 
-      // Abbr label (top left)
+      // Abbr label
       g.append('text')
         .attr('x', ZONE_W / 2)
-        .attr('y', 14)
+        .attr('y', 18)
         .attr('text-anchor', 'middle')
-        .attr('font-size', '9px')
+        .attr('font-size', '11px')
         .attr('fill', '#64748b')
         .attr('font-family', 'JetBrains Mono, monospace')
         .attr('font-weight', '400')
@@ -112,9 +112,9 @@ export default function FabMap({ readings = {} }) {
       // Full zone name
       g.append('text')
         .attr('x', ZONE_W / 2)
-        .attr('y', 30)
+        .attr('y', 38)
         .attr('text-anchor', 'middle')
-        .attr('font-size', '10px')
+        .attr('font-size', '13px')
         .attr('fill', '#e2e8f0')
         .attr('font-weight', '700')
         .attr('font-family', 'Inter, sans-serif')
@@ -123,13 +123,24 @@ export default function FabMap({ readings = {} }) {
       // Particle reading
       g.append('text')
         .attr('x', ZONE_W / 2)
-        .attr('y', 50)
+        .attr('y', 62)
         .attr('text-anchor', 'middle')
-        .attr('font-size', '11px')
+        .attr('font-size', '16px')
         .attr('fill', pColor)
         .attr('font-weight', '700')
         .attr('font-family', 'JetBrains Mono, monospace')
-        .text(`${particles.toFixed(2)} p/m³`);
+        .text(`${particles.toFixed(2)}`);
+
+      g.append('text')
+        .attr('x', ZONE_W / 2)
+        .attr('y', 78)
+        .attr('text-anchor', 'middle')
+        .attr('font-size', '10px')
+        .attr('fill', pColor)
+        .attr('font-weight', '400')
+        .attr('font-family', 'JetBrains Mono, monospace')
+        .attr('opacity', 0.8)
+        .text('p/m³');
 
       // Trend text
       const trend = reading ? reading.trend : 'stable';
@@ -138,23 +149,23 @@ export default function FabMap({ readings = {} }) {
 
       g.append('text')
         .attr('x', ZONE_W / 2)
-        .attr('y', 65)
+        .attr('y', 97)
         .attr('text-anchor', 'middle')
-        .attr('font-size', '9px')
+        .attr('font-size', '10px')
         .attr('fill', trendColor)
         .attr('font-family', 'JetBrains Mono, monospace')
         .text(trendSymbol + ' ' + trend.toUpperCase());
 
       // Sensor dot at bottom center
       const dotX = ZONE_W / 2;
-      const dotY = ZONE_H - 10;
+      const dotY = ZONE_H - 14;
 
       const dotFilter = particles > 1.0 ? 'url(#glow-red)' : particles > 0.3 ? 'url(#glow-yellow)' : null;
 
       const dot = g.append('circle')
         .attr('cx', dotX)
         .attr('cy', dotY)
-        .attr('r', 5)
+        .attr('r', 7)
         .attr('fill', dotColor);
 
       if (dotFilter) dot.attr('filter', dotFilter);
@@ -172,10 +183,10 @@ export default function FabMap({ readings = {} }) {
 
       svg.append('text')
         .attr('x', arrowX)
-        .attr('y', arrowY + 5)
+        .attr('y', arrowY + 6)
         .attr('text-anchor', 'middle')
-        .attr('font-size', '14px')
-        .attr('fill', 'rgba(148,163,184,0.5)')
+        .attr('font-size', '20px')
+        .attr('fill', 'rgba(148,163,184,0.45)')
         .text('›');
     }
 
@@ -186,10 +197,10 @@ export default function FabMap({ readings = {} }) {
 
       svg.append('text')
         .attr('x', arrowX)
-        .attr('y', arrowY + 5)
+        .attr('y', arrowY + 6)
         .attr('text-anchor', 'middle')
-        .attr('font-size', '14px')
-        .attr('fill', 'rgba(148,163,184,0.5)')
+        .attr('font-size', '20px')
+        .attr('fill', 'rgba(148,163,184,0.45)')
         .text('›');
     }
 
