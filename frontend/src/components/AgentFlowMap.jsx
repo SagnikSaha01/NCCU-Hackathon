@@ -171,48 +171,87 @@ export default function AgentFlowMap({ agentEvents = [] }) {
   // ── Measure container ────────────────────────────────────────────────────
   useEffect(() => {
     if (!containerRef.current) return;
-    const ro = new ResizeObserver(entries => {
-      const { width, height } = entries[0].contentRect;
+
+    const measure = () => {
+      if (!containerRef.current) return;
+      const { width, height } = containerRef.current.getBoundingClientRect();
       setDim({ w: Math.max(width, 500), h: Math.max(height, 320) });
-    });
+    };
+
+    // Measure after the browser has painted the layout (avoids stale 0/440px reads)
+    const raf = requestAnimationFrame(measure);
+
+    const ro = new ResizeObserver(() => measure());
     ro.observe(containerRef.current);
-    return () => ro.disconnect();
+
+    return () => {
+      cancelAnimationFrame(raf);
+      ro.disconnect();
+    };
   }, []);
 
   const { w, h } = dim;
 
   // ── Fixed agent spine layout ─────────────────────────────────────────────
-  const SPINE_Y  = h * 0.50;
-  const PAD_L    = w * 0.04;
-  const PAD_R    = w * 0.04;
+  const SPINE_Y  = h * 0.42;  // shifted up to give more room below for two-row data stores
+  const PAD_L    = w * 0.03;
+  const PAD_R    = w * 0.03;
   const USABLE_W = w - PAD_L - PAD_R;
-  const NW       = Math.max(110, Math.min(148, USABLE_W / 8.5));
-  const NH       = 60;
-  const STEP     = USABLE_W / (AGENTS.length - 1);
+  // Node centres run from (PAD_L + NW/2) to (w - PAD_R - NW/2)
+  // so node EDGES never exceed the padding margins on either side.
+  const NW          = Math.max(100, Math.min(148, USABLE_W / 8.2));
+  const NH          = 60;
+  const SPINE_START = PAD_L + NW / 2;
+  const SPINE_END   = w - PAD_R - NW / 2;
+  const STEP        = (SPINE_END - SPINE_START) / (AGENTS.length - 1);
 
-  const agentCX = (i) => PAD_L + i * STEP;
+  const agentCX = (i) => SPINE_START + i * STEP;
 
   // ── Default positions for draggable nodes ───────────────────────────────
-  // Called once after dim is known (or reset when dim changes significantly).
+  // Layout intent:
+  //   INPUT ROW  (above spine): trigger → sse → readings, each centred above
+  //              the agent it connects to, evenly separated horizontally.
+  //   DATA STORE ROW (below spine): four stores spaced under agents 1–4 so
+  //              connector lines are short and non-crossing.
+  //   OUTPUT COLUMN (right of last agent): three outputs stacked vertically,
+  //              close enough to have short connectors but never overlapping.
   const defaultPositions = useCallback(() => {
-    const TOP_Y = SPINE_Y - NH / 2 - BX_H - 50;  // above agent row
-    const BOT_Y = SPINE_Y + NH / 2 + 55;           // below agent row
-    const ORIGH = SPINE_Y;
+    // Vertical bands — generous padding so labels/connectors don't collide
+    const TOP_Y  = SPINE_Y - NH / 2 - BX_H - 56;  // above spine
+    const BOT_Y  = SPINE_Y + NH / 2 + 52;           // below spine
+
+    // Input nodes: spread above agents 0 → 1, centred on their target agent
+    // Each box is BX_W wide; keep at least 12px gap between them.
+    const safeInpStep = Math.max(BX_W + 12, STEP * 0.9);
+    const inpX0 = agentCX(0) - BX_W / 2;
+
+    // Data stores: two rows below spine (alternating) so BX_W-wide boxes never overlap.
+    // Row A (closer): agents 1 & 3; Row B (further): agents 2 & 4.
+    const BOT_A = BOT_Y;
+    const BOT_B = BOT_Y + BX_H + 20;
+
+    // Output nodes: horizontal row below agents 4/5/6
+    // Placed in open space below the right side of the spine — never on top of agents.
+    const outY   = BOT_A;          // same vertical band as first data-store row
+    const outSpan = BX_W + 16;    // horizontal distance between box left edges
+
+    // Centre the group of 3 boxes under agents 4–6
+    const outMidX = agentCX(5) - BX_W / 2;
 
     return {
-      // Input nodes (above spine)
-      trigger:   { x: agentCX(0),              y: TOP_Y },
-      sse:       { x: agentCX(0) + STEP * 0.6, y: TOP_Y },
-      readings:  { x: agentCX(0) + STEP * 1.2, y: TOP_Y },
-      // Data stores (below spine)
-      zonemap:   { x: agentCX(1) - STEP * 0.2, y: BOT_Y },
-      airflow:   { x: agentCX(1) + STEP * 0.5, y: BOT_Y },
-      patterns:  { x: agentCX(2) + STEP * 0.1, y: BOT_Y },
-      maintlogs: { x: agentCX(3) + STEP * 0.1, y: BOT_Y },
-      // Output nodes (right of ResponseAgent)
-      diagnosis: { x: agentCX(6) + STEP * 0.45, y: ORIGH - 58 },
-      actionplan:{ x: agentCX(6) + STEP * 0.45, y: ORIGH },
-      approval:  { x: agentCX(6) + STEP * 0.45, y: ORIGH + 58 },
+      // ── INPUT PIPELINE (above spine) ──────────────────────────────────
+      trigger:    { x: inpX0,                   y: TOP_Y },
+      sse:        { x: inpX0 + safeInpStep,      y: TOP_Y },
+      readings:   { x: inpX0 + safeInpStep * 2,  y: TOP_Y },
+      // ── DATA STORES — two alternating rows so boxes never overlap ────
+      zonemap:    { x: agentCX(1) - BX_W / 2,   y: BOT_A },
+      airflow:    { x: agentCX(2) - BX_W / 2,   y: BOT_B },
+      patterns:   { x: agentCX(3) - BX_W / 2,   y: BOT_A },
+      maintlogs:  { x: agentCX(4) - BX_W / 2,   y: BOT_B },
+      // ── OUTPUTS — spread horizontally below agents 4/5/6 ─────────────
+      diagnosis:  { x: outMidX - outSpan, y: outY },
+      actionplan: { x: outMidX,           y: outY },
+      approval:   { x: outMidX + outSpan, y: outY },
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [w, h]);
@@ -314,8 +353,8 @@ export default function AgentFlowMap({ agentEvents = [] }) {
       </div>
 
       {/* ── SVG canvas ── */}
-      <svg ref={svgRef} width={w} height={h} viewBox={`0 0 ${w} ${h}`}
-        style={{ flex: 1, display: 'block', cursor: isDraggingAny ? 'grabbing' : 'default' }}
+      <svg ref={svgRef} width="100%" height="100%" viewBox={`0 0 ${w} ${h}`}
+        style={{ flex: 1, display: 'block', cursor: isDraggingAny ? 'grabbing' : 'default', minWidth: 0 }}
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
         onMouseLeave={handleMouseUp}>
@@ -343,7 +382,7 @@ export default function AgentFlowMap({ agentEvents = [] }) {
         {[
           { t: '▸ INPUT PIPELINE',  x: PAD_L,           y: positions.trigger.y - 10 },
           { t: '▸ DATA STORES',     x: PAD_L,           y: positions.zonemap.y - 10 },
-          { t: '▸ OUTPUTS',         x: positions.diagnosis.x, y: positions.diagnosis.y - 10 },
+          { t: '▸ OUTPUTS',         x: positions.diagnosis.x, y: positions.diagnosis.y - 12 },
         ].map(l => (
           <text key={l.t} x={l.x} y={l.y} fontSize={10} fontWeight={700} fill={DIM_SUB}
             fontFamily="JetBrains Mono, monospace" letterSpacing="0.08em">
@@ -365,10 +404,10 @@ export default function AgentFlowMap({ agentEvents = [] }) {
 
         {/* ══ STORE → AGENT CONNECTORS ════════════════════════════════════════ */}
         {[
-          { id: 'zonemap',   agentIdx: 1 },
-          { id: 'airflow',   agentIdx: 1 },
-          { id: 'patterns',  agentIdx: 2 },
-          { id: 'maintlogs', agentIdx: 3 },
+          { id: 'zonemap',   agentIdx: 1 },   // PhysicsAgent reads zone map
+          { id: 'airflow',   agentIdx: 1 },   // PhysicsAgent reads airflow model
+          { id: 'patterns',  agentIdx: 2 },   // PatternAgent reads historical patterns
+          { id: 'maintlogs', agentIdx: 3 },   // CorrelationAgent reads maintenance logs
         ].map(s => (
           <path key={s.id}
             d={lineTo(positions[s.id], agentCX(s.agentIdx), SPINE_Y + NH / 2)}
@@ -377,12 +416,20 @@ export default function AgentFlowMap({ agentEvents = [] }) {
         ))}
 
         {/* ══ RESPONSE AGENT → OUTPUT CONNECTORS ══════════════════════════════ */}
-        {['diagnosis', 'actionplan', 'approval'].map(id => (
-          <path key={id}
-            d={`M ${agentCX(6) + NW/2} ${SPINE_Y} L ${positions[id].x} ${positions[id].y + BX_H/2}`}
-            fill="none" stroke="rgba(34,197,94,0.3)"
-            strokeWidth={1.3} strokeDasharray="4 3" markerEnd="url(#arr-out)" />
-        ))}
+        {/* Connectors drop from the bottom of ResponseAgent down to each output box */}
+        {['diagnosis', 'actionplan', 'approval'].map(id => {
+          const pos = positions[id];
+          const sx = agentCX(6);          // agent centre x
+          const sy = SPINE_Y + NH / 2;    // agent bottom edge
+          const tx = pos.x + BX_W / 2;   // output box centre x
+          const ty = pos.y;               // output box top edge
+          return (
+            <path key={id}
+              d={`M ${sx} ${sy} C ${sx} ${(sy + ty) / 2}, ${tx} ${(sy + ty) / 2}, ${tx} ${ty}`}
+              fill="none" stroke="rgba(34,197,94,0.3)"
+              strokeWidth={1.3} strokeDasharray="4 3" markerEnd="url(#arr-out)" />
+          );
+        })}
 
         {/* ══ AGENT EDGES (main spine) ════════════════════════════════════════ */}
         {AGENT_EDGES.map((e) => {
