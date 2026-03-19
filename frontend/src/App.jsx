@@ -6,6 +6,7 @@ import SensorStatus from './components/SensorStatus.jsx';
 import Timeline from './components/Timeline.jsx';
 import ScenarioButtons from './components/ScenarioButtons.jsx';
 import AgentFlowMap from './components/AgentFlowMap.jsx';
+import WatchdogView from './components/WatchdogView.jsx';
 
 const BASELINE_READINGS = {
   'lithography-bay': { particles: 0.07, trend: 'stable', particleSize: '0.3µm' },
@@ -29,6 +30,7 @@ const RIGHT_TABS = [
 const VIEWS = [
   { id: 'cleanroom', label: 'Cleanroom Floor', icon: '🏭' },
   { id: 'pipeline',  label: 'Agent Pipeline',  icon: '🔀' },
+  { id: 'watchdog',  label: 'Watchdog',        icon: '🔮' },
 ];
 
 export default function App() {
@@ -39,7 +41,7 @@ export default function App() {
   const [severity, setSeverity] = useState(null);
   const [isInvestigating, setIsInvestigating] = useState(false);
   const [isComplete, setIsComplete] = useState(false);
-  const [activeView, setActiveView] = useState('cleanroom');
+  const [activeView, setActiveView] = useState('watchdog');
   const [activeTab, setActiveTab] = useState('feed');
   const esRef = useRef(null);
 
@@ -86,6 +88,7 @@ export default function App() {
               agent: event.agent,
               summary: event.summary,
               details: event.details,
+              trace: event.trace,
               timestamp,
             }]);
 
@@ -175,6 +178,9 @@ export default function App() {
               {v.id === 'pipeline' && isInvestigating && (
                 <span className="main-view-pip" />
               )}
+              {v.id === 'watchdog' && (
+                <span className="main-view-pip" style={{ background: '#22c55e' }} />
+              )}
             </button>
           ))}
         </div>
@@ -186,7 +192,7 @@ export default function App() {
           </div>
           <div className="header-status">
             <div className="status-dot" style={{ background: '#a855f7' }} />
-            7 agents ready
+            8 agents ready
           </div>
           {isInvestigating && (
             <div className="header-badge" style={{ borderColor: '#eab308', color: '#eab308', background: 'rgba(234,179,8,0.15)' }}>
@@ -296,6 +302,13 @@ export default function App() {
             agentEvents={agentEvents}
             isInvestigating={isInvestigating}
           />
+        </div>
+      )}
+
+      {/* ─── VIEW: Watchdog ─── */}
+      {activeView === 'watchdog' && (
+        <div className="pipeline-view">
+          <WatchdogView />
         </div>
       )}
 

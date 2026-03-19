@@ -29,13 +29,14 @@ Respond with a JSON object in this exact shape:
 }
 `.trim();
 
-  const raw    = await invokeAgent(AGENT_ID, prompt);
-  const parsed = extractJSON(raw);
+  const { content, trace } = await invokeAgent(AGENT_ID, prompt);
+  const parsed = extractJSON(content);
 
   return {
     agent: 'PhysicsAgent',
     status: 'complete',
-    summary: parsed.summary ?? `Traced source upstream to ${parsed.upstreamSource}. Spread: ${parsed.spreadPattern}.`,
+    summary: parsed.summary ?? `Traced source upstream to ${parsed.upstreamSource ?? allAffected[0]?.zone}. Spread: ${parsed.spreadPattern ?? 'unidirectional-right'}.`,
+    trace,
     details: {
       spreadPattern:    parsed.spreadPattern  ?? 'unidirectional-right',
       upstreamSource:   parsed.upstreamSource ?? allAffected[0]?.zone,

@@ -9,6 +9,7 @@ import { runCorrelationAgent } from './agents/correlationAgent.js';
 import { runVerificationAgent } from './agents/verificationAgent.js';
 import { runSeverityAgent } from './agents/severityAgent.js';
 import { runResponseAgent } from './agents/responseAgent.js';
+import { startWatchdogPoller, getWatchdogState } from './services/watchdogPoller.js';
 
 const app = express();
 app.use(cors());
@@ -122,5 +123,12 @@ app.get('/api/investigate/:scenarioKey', async (req, res) => {
   res.end();
 });
 
+app.get('/api/watchdog/alerts', (_req, res) => {
+  res.json(getWatchdogState());
+});
+
 const PORT = 3001;
-app.listen(PORT, () => console.log(`ContaminationHunter backend running on http://localhost:${PORT}`));
+app.listen(PORT, () => {
+  console.log(`ContaminationHunter backend running on http://localhost:${PORT}`);
+  startWatchdogPoller();
+});

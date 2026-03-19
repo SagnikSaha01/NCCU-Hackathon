@@ -13,7 +13,7 @@ const MAINTENANCE_LOG = `
 - chemical-storage: Chemical Cabinet Seals, last serviced 78 days ago, due every 90 days — OK
 `.trim();
 
-export async function runCorrelationAgent(scenario, readings, previousOutput) {
+export async function runCorrelationAgent(_scenario, _readings, previousOutput) {
   const { candidateZones = [], matchedType } = previousOutput.details;
 
   const prompt = `
@@ -41,13 +41,14 @@ Respond with a JSON object in this exact shape:
 }
 `.trim();
 
-  const raw    = await invokeAgent(AGENT_ID, prompt);
-  const parsed = extractJSON(raw);
+  const { content, trace } = await invokeAgent(AGENT_ID, prompt);
+  const parsed = extractJSON(content);
 
   return {
     agent: 'CorrelationAgent',
     status: 'complete',
-    summary: parsed.summary ?? `Primary candidate: ${parsed.primaryCandidate}. Overdue items: ${parsed.overdueCount}.`,
+    summary: parsed.summary ?? `Primary candidate: ${parsed.primaryCandidate ?? candidateZones[0]}. Overdue items: ${parsed.overdueCount ?? 0}.`,
+    trace,
     details: {
       primaryCandidate:      parsed.primaryCandidate      ?? candidateZones[0],
       overdueCount:          parsed.overdueCount          ?? 0,

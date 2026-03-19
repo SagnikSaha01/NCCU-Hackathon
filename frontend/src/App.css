@@ -1251,3 +1251,232 @@ body {
   background: var(--border);
   margin: 10px 0;
 }
+
+/* ─── Tab badge amber variant ─── */
+.tab-badge-amber {
+  background: rgba(249, 115, 22, 0.2);
+  color: #f97316;
+  border: 1px solid rgba(249, 115, 22, 0.4);
+}
+
+/* ─── Predictive Alerts Panel ─── */
+.predictive-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 4px 0;
+}
+
+.predictive-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+
+.predictive-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-secondary);
+}
+
+.predictive-pulse-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #f97316;
+  animation: pulse 1.4s ease-in-out infinite;
+  flex-shrink: 0;
+}
+
+.predictive-meta {
+  font-size: 0.65rem;
+  color: var(--text-muted);
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.predictive-loading,
+.predictive-nominal {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 16px;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  background: var(--bg-card);
+  border-radius: 8px;
+  border: 1px solid var(--border);
+}
+
+.predictive-nominal {
+  color: #22c55e;
+  border-color: rgba(34, 197, 94, 0.25);
+  background: rgba(34, 197, 94, 0.06);
+}
+
+.predictive-alert {
+  padding: 12px 14px;
+  border-radius: 8px;
+  border: 1px solid;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.predictive-alert-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.predictive-alert-icon {
+  font-size: 1rem;
+  flex-shrink: 0;
+}
+
+.predictive-alert-zone {
+  font-size: 0.82rem;
+  font-weight: 700;
+  font-family: 'JetBrains Mono', monospace;
+  flex: 1;
+}
+
+.predictive-alert-level {
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  padding: 2px 7px;
+  border-radius: 4px;
+  border: 1px solid;
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.predictive-alert-equipment {
+  font-size: 0.72rem;
+  color: var(--text-secondary);
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.predictive-alert-message {
+  font-size: 0.78rem;
+  color: var(--text-primary);
+  line-height: 1.5;
+}
+
+.predictive-alert-reason {
+  font-size: 0.78rem;
+  color: var(--text-primary);
+  line-height: 1.5;
+}
+
+.predictive-alert-urgency {
+  font-size: 0.62rem;
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 600;
+  margin-left: auto;
+}
+
+.predictive-alert-action {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  line-height: 1.5;
+  margin-top: 2px;
+  padding-top: 6px;
+  border-top: 1px solid rgba(255,255,255,0.05);
+}
+
+.predictive-action-label {
+  font-size: 0.6rem;
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+  white-space: nowrap;
+  padding-top: 2px;
+}
+
+.predictive-alert-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 2px;
+}
+
+.predictive-stat {
+  font-size: 0.65rem;
+  font-family: 'JetBrains Mono', monospace;
+  color: var(--text-muted);
+  background: rgba(255,255,255,0.04);
+  border: 1px solid var(--border);
+  padding: 2px 7px;
+  border-radius: 4px;
+}
+
+.predictive-footer {
+  font-size: 0.72rem;
+  color: #f97316;
+  padding: 8px 12px;
+  background: rgba(249, 115, 22, 0.07);
+  border: 1px solid rgba(249, 115, 22, 0.25);
+  border-radius: 6px;
+  text-align: center;
+}
+
+/* ─── ReAct Reasoning Trace ─── */
+.trace-toggle {
+  margin-left: auto;
+  padding: 2px 9px;
+  border-radius: 4px;
+  border: 1px solid;
+  background: transparent;
+  font-size: 0.68rem;
+  font-family: 'JetBrains Mono', monospace;
+  cursor: pointer;
+  transition: opacity 0.15s;
+  white-space: nowrap;
+}
+
+.trace-toggle:hover {
+  opacity: 0.75;
+}
+
+.trace-panel {
+  margin-top: 10px;
+  padding: 10px 12px;
+  background: rgba(0, 0, 0, 0.25);
+  border-radius: 6px;
+  border-left: 2px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.72rem;
+}
+
+.trace-step {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  line-height: 1.5;
+}
+
+.trace-label {
+  font-weight: 700;
+  font-size: 0.65rem;
+  letter-spacing: 0.08em;
+  white-space: nowrap;
+  min-width: 88px;
+  padding-top: 1px;
+}
+
+.trace-value {
+  color: var(--text-secondary);
+}

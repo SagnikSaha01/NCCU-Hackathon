@@ -1,0 +1,146 @@
+WATCHDOG CONTEXT FILE
+Generated: 2026-03-19
+
+TODAY'S DATE: 2026-03-19
+Use this date for all maintenance overdue calculations.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+CURRENT MAINTENANCE STATUS SUMMARY
+(calculated from maintenance_history records)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Zone: HVAC Unit #7
+Last serviced: 2025-11-18
+Service interval: 90 days
+Days since service: 121
+Days overdue: 31
+Overdue percentage: 134%
+Status: OVERDUE — HIGH RISK
+
+Zone: Etch Chamber
+Last serviced: 2026-01-08
+Service interval: 60 days
+Days since service: 70
+Days overdue: 10
+Overdue percentage: 117%
+Status: OVERDUE — MEDIUM RISK
+Note: Seal torque values were slightly below spec at last service
+
+Zone: CMP
+Last serviced: 2025-09-03
+Service interval: 90 days
+Days since service: 197
+Days overdue: 107
+Overdue percentage: 219%
+Status: SEVERELY OVERDUE
+Note: No recent maintenance record found after Sept 2025 — 
+escalation required
+
+Zone: Clean Station
+Last serviced: 2025-10-01
+Service interval: 60 days
+Days since service: 169
+Days overdue: 109
+Overdue percentage: 282%
+Status: CRITICALLY OVERDUE
+
+Zone: Chemical Storage
+Last serviced: 2025-09-18
+Service interval: 90 days
+Days since service: 182
+Days overdue: 92
+Overdue percentage: 202%
+Status: SEVERELY OVERDUE
+
+Zone: Lithography Bay
+Last serviced: 2025-11-22
+Service interval: 90 days
+Days since service: 117
+Days overdue: 27
+Overdue percentage: 130%
+Status: OVERDUE — MEDIUM RISK
+
+Zone: Deposition
+Last serviced: 2025-10-09
+Service interval: 90 days
+Days since service: 161
+Days overdue: 71
+Overdue percentage: 179%
+Status: SEVERELY OVERDUE
+
+Zone: Metrology
+Last serviced: 2025-11-05
+Service interval: 90 days
+Days since service: 134
+Days overdue: 44
+Overdue percentage: 149%
+Status: OVERDUE — MEDIUM RISK
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+RECENT PARTICLE READINGS — LAST 10 DAYS
+(daily averages, particles/m³)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+HVAC Unit #7 (baseline avg_30d: 0.105, avg_90d: 0.098)
+Day -9: 0.099 | Day -8: 0.101 | Day -7: 0.104
+Day -6: 0.106 | Day -5: 0.109 | Day -4: 0.112
+Day -3: 0.118 | Day -2: 0.124 | Day -1: 0.131
+Today: 0.139
+Trend: +40% above 90-day baseline. Consistent upward drift 
+9 consecutive days. Approaching spike threshold of 0.315.
+
+Etch Chamber (baseline avg_30d: 0.095, avg_90d: 0.092)
+Day -9: 0.091 | Day -8: 0.093 | Day -7: 0.094
+Day -6: 0.096 | Day -5: 0.097 | Day -4: 0.099
+Day -3: 0.101 | Day -2: 0.103 | Day -1: 0.106
+Today: 0.109
+Trend: +18% above 90-day baseline. Gradual upward drift 
+7 consecutive days. Below threshold but accelerating.
+
+CMP (baseline avg_30d: 0.112, avg_90d: 0.115)
+Day -9: 0.110 | Day -8: 0.111 | Day -7: 0.112
+Day -6: 0.111 | Day -5: 0.113 | Day -4: 0.112
+Day -3: 0.114 | Day -2: 0.113 | Day -1: 0.115
+Today: 0.114
+Trend: STABLE. Flat within normal variation. No drift signal.
+
+Lithography Bay (baseline avg_30d: 0.062, avg_90d: 0.065)
+Day -9: 0.063 | Day -8: 0.062 | Day -7: 0.061
+Day -6: 0.063 | Day -5: 0.062 | Day -4: 0.064
+Day -3: 0.063 | Day -2: 0.062 | Day -1: 0.063
+Today: 0.062
+Trend: STABLE. No anomaly.
+
+Deposition (baseline avg_30d: 0.088, avg_90d: 0.089)
+Day -9: 0.087 | Day -8: 0.088 | Day -7: 0.089
+Day -6: 0.088 | Day -5: 0.090 | Day -4: 0.089
+Day -3: 0.091 | Day -2: 0.090 | Day -1: 0.092
+Today: 0.093
+Trend: Slight upward. +4% above baseline. 
+Not yet flagged — monitor.
+
+Metrology (baseline avg_30d: 0.055, avg_90d: 0.054)
+Trend: STABLE.
+
+Clean Station (baseline avg_30d: 0.058, avg_90d: 0.060)
+Trend: STABLE.
+
+Chemical Storage (baseline avg_30d: 0.072, avg_90d: 0.075)
+Trend: STABLE.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+KEY PRECURSOR PATTERNS FROM HISTORY
+(for WatchdogAgent pattern matching)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+EVT-2025-01-14 (HVAC_FILTER_FAILURE, $2.8M loss):
+- Preceded by: 92 days overdue + differential pressure 
+  trending upward for 2 weeks before failure
+- This is the most costly event in fab history
+- Current HVAC #7 status matches pre-failure signature
+
+EVT-2025-05-18 (TOOL_SEAL_BREACH, Etch Chamber):
+- Preceded by: turbo pump wear noted 3 months earlier,
+  not acted on
+- Current Etch Chamber has overdue service + accelerating
+  baseline drift — partial match to pre-event signature

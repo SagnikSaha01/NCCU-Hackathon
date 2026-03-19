@@ -5,15 +5,22 @@ const API_KEY  = process.env.IBM_KEY?.trim();
 
 const TOKEN_URL = 'https://iam.platform.saas.ibm.com/siusermgr/api/1.0/apikeys/token';
 
-// Cache the JWT so we don't re-exchange on every agent call
-let cachedToken     = null;
-let tokenExpiresAt  = 0;
+// Appended to every agent prompt so the ReAct reasoning is visible in the response
+const REASONING_INSTRUCTION = `
+
+Before your JSON response, show your reasoning in exactly this format (do not skip any step):
+THOUGHT: [your initial analysis of the inputs]
+ACTION: [the specific check or analysis you are performing]
+OBSERVATION: [what you found from that check]
+ANSWER: [your conclusion in one sentence]
+
+Then provide the JSON.`;
+
+let cachedToken    = null;
+let tokenExpiresAt = 0;
 
 async function getJWT() {
-  // Reuse if still valid (with 60s buffer)
-  if (cachedToken && Date.now() < tokenExpiresAt - 60_000) {
-    return cachedToken;
-  }
+  if (cachedToken && Date.now() < tokenExpiresAt - 60_000) return cachedToken;
 
   const res = await fetch(TOKEN_URL, {
     method:  'POST',
@@ -21,33 +28,37 @@ async function getJWT() {
     body:    JSON.stringify({ apikey: API_KEY }),
   });
 
-  if (!res.ok) {
-    const err = await res.text();
-    throw new Error(`JWT exchange failed ${res.status}: ${err}`);
-  }
+  if (!res.ok) throw new Error(`JWT exchange failed ${res.status}: ${await res.text()}`);
 
-  const data = await res.json();
-
-  // The response contains the token — field name varies, try common ones
-  cachedToken    = data.token ?? data.access_token ?? data.jwt ?? data.id_token;
-  // Default expiry 3600s if not provided
+  const data      = await res.json();
+  cachedToken     = data.token ?? data.access_token ?? data.jwt ?? data.id_token;
   const expiresIn = data.expires_in ?? data.expiration ?? 3600;
   tokenExpiresAt  = Date.now() + expiresIn * 1000;
 
-  if (!cachedToken) {
-    throw new Error(`JWT exchange: no token field in response — ${JSON.stringify(data)}`);
-  }
-
+  if (!cachedToken) throw new Error(`JWT exchange: no token field — ${JSON.stringify(data)}`);
   console.log('[orchestrateClient] JWT token refreshed');
   return cachedToken;
 }
 
 /**
+ * Extract THOUGHT / ACTION / OBSERVATION / ANSWER from a ReAct-style response.
+ */
+function extractTrace(text) {
+  const get = (label, next) => {
+    const pattern = new RegExp(`${label}:\\s*([\\s\\S]*?)(?=${next}:|\\{|\`\`\`|$)`, 'i');
+    return text.match(pattern)?.[1]?.trim() ?? null;
+  };
+  return {
+    thought:     get('THOUGHT',     'ACTION'),
+    action:      get('ACTION',      'OBSERVATION'),
+    observation: get('OBSERVATION', 'ANSWER'),
+    answer:      get('ANSWER',      'THOUGHT|\\{|\`\`\`'),
+  };
+}
+
+/**
  * Send a message to a deployed watsonx Orchestrate agent.
- *
- * @param {string} agentId  - The agent's UUID from .env
- * @param {string} userMsg  - The prompt text to send
- * @returns {string}        - The agent's plain-text response
+ * Returns { content: string, trace: { thought, action, observation, answer } }
  */
 export async function invokeAgent(agentId, userMsg) {
   if (!BASE_URL || !API_KEY) throw new Error('Missing SERVER_INSTANCE or IBM_KEY in .env');
@@ -63,7 +74,7 @@ export async function invokeAgent(agentId, userMsg) {
       'Content-Type':  'application/json',
     },
     body: JSON.stringify({
-      messages: [{ role: 'user', content: userMsg }],
+      messages: [{ role: 'user', content: userMsg + REASONING_INSTRUCTION }],
       stream: false
     }),
   });
@@ -74,19 +85,17 @@ export async function invokeAgent(agentId, userMsg) {
   }
 
   const data = await response.json();
-
-  // Handle standard OpenAI-compatible response or IBM-specific shapes
   const content = data?.choices?.[0]?.message?.content
     ?? data?.output?.text
     ?? data?.response
     ?? JSON.stringify(data);
 
-  return content;
+  const trace = extractTrace(content);
+  return { content, trace };
 }
 
 /**
  * Try to extract a JSON object from a free-text LLM response.
- * Falls back to returning the raw text wrapped in an object.
  */
 export function extractJSON(text) {
   try { return JSON.parse(text); } catch {}

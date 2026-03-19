@@ -39,13 +39,14 @@ Respond with a JSON object in this exact shape:
 }
 `.trim();
 
-  const raw    = await invokeAgent(AGENT_ID, prompt);
-  const parsed = extractJSON(raw);
+  const { content, trace } = await invokeAgent(AGENT_ID, prompt);
+  const parsed = extractJSON(content);
 
   return {
     agent: 'PatternAgent',
     status: 'complete',
-    summary: parsed.summary ?? `Matched to ${parsed.matchedType} with ${parsed.patternConfidence}% confidence.`,
+    summary: parsed.summary ?? `Matched to ${parsed.matchedType ?? 'HVAC_FILTER_FAILURE'} with ${parsed.patternConfidence ?? 80}% confidence.`,
+    trace,
     details: {
       matchedType:       parsed.matchedType       ?? 'HVAC_FILTER_FAILURE',
       patternConfidence: parsed.patternConfidence  ?? 80,

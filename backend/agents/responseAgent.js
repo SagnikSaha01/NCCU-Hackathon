@@ -48,13 +48,14 @@ End your reasoning with this exact disclaimer:
 ⚠ RECOMMENDATIONS ONLY — Awaiting authorized engineer approval before execution.
 `.trim();
 
-  const raw    = await invokeAgent(AGENT_ID, prompt);
-  const parsed = extractJSON(raw);
+  const { content, trace } = await invokeAgent(AGENT_ID, prompt);
+  const parsed = extractJSON(content);
 
   return {
     agent: 'ResponseAgent',
     status: 'complete',
     summary: parsed.summary ?? `Response plan generated. ${parsed.recommendedActions?.filter(a => a.urgency === 'IMMEDIATE').length ?? 0} immediate actions. AWAITING ENGINEER APPROVAL.`,
+    trace,
     details: {
       diagnosis: {
         source:           verificationOut.proposedSource,

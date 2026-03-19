@@ -1,0 +1,46 @@
+[
+  {
+    "incident_id": "INC-8821",
+    "date": "2024-05-12",
+    "contamination_type": "HVAC_FILTER_FAILURE",
+    "wafers_scrapped": 120,
+    "wafers_at_risk": 500,
+    "lot_value_lost_usd": 450000,
+    "detection_time_hours": 6.5,
+    "resolution_time_hours": 12.0,
+    "root_cause": "Manual inspection missed filter degradation during routine walk-through."
+  },
+  {
+    "incident_id": "INC-9012",
+    "date": "2025-01-14",
+    "contamination_type": "HVAC_FILTER_FAILURE",
+    "wafers_scrapped": 850,
+    "wafers_at_risk": 1200,
+    "lot_value_lost_usd": 2800000,
+    "detection_time_hours": 8.0,
+    "resolution_time_hours": 18.0,
+    "root_cause": "Night shift delay in manual log verification."
+  },
+  {
+    "incident_id": "INC-9550",
+    "date": "2025-11-10",
+    "contamination_type": "TOOL_SEAL_BREACH",
+    "wafers_scrapped": 2,
+    "wafers_at_risk": 25,
+    "lot_value_lost_usd": 15000,
+    "detection_time_hours": 0.033,
+    "resolution_time_hours": 1.5,
+    "root_cause": "AI System detected 0.2 micron spike instantly. Automated tool interlock triggered."
+  },
+  {
+    "incident_id": "INC-9610",
+    "date": "2026-02-02",
+    "contamination_type": "CHEMICAL_OUTGASSING",
+    "wafers_scrapped": 0,
+    "wafers_at_risk": 150,
+    "lot_value_lost_usd": 0,
+    "detection_time_hours": 0.025,
+    "resolution_time_hours": 0.5,
+    "root_cause": "AI triggered isolation valves before particles reached processing bay."
+  }
+]

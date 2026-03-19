@@ -41,20 +41,24 @@ Respond with a JSON object in this exact shape:
 }
 `.trim();
 
-  const raw    = await invokeAgent(AGENT_ID, prompt);
-  const parsed = extractJSON(raw);
+  const { content, trace } = await invokeAgent(AGENT_ID, prompt);
+  const parsed = extractJSON(content);
+
+  const severity  = parsed.severity  ?? 'HIGH';
+  const riskScore = parsed.riskScore ?? 70;
 
   return {
     agent: 'SeverityAgent',
     status: 'complete',
-    summary: parsed.summary ?? `Severity: ${parsed.severity}. Risk score: ${parsed.riskScore}/100.`,
+    summary: parsed.summary ?? `Severity: ${severity}. Risk score: ${riskScore}/100.`,
+    trace,
     details: {
-      severity:               parsed.severity               ?? 'HIGH',
-      riskScore:              parsed.riskScore              ?? 70,
-      lotValueAtRisk:         parsed.lotValueAtRisk         ?? 'Unknown',
-      isoClassViolation:      parsed.isoClassViolation      ?? 'NO',
+      severity,
+      riskScore,
+      lotValueAtRisk:           parsed.lotValueAtRisk           ?? 'Unknown',
+      isoClassViolation:        parsed.isoClassViolation        ?? 'NO',
       recommendImmediateAction: parsed.recommendImmediateAction ?? false,
-      maxParticleReading:     maxParticles.toFixed(2),
+      maxParticleReading:       maxParticles.toFixed(2),
     }
   };
 }

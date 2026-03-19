@@ -39,18 +39,22 @@ Respond with a JSON object in this exact shape:
 }
 `.trim();
 
-  const raw    = await invokeAgent(AGENT_ID, prompt);
-  const parsed = extractJSON(raw);
+  const { content, trace } = await invokeAgent(AGENT_ID, prompt);
+  const parsed = extractJSON(content);
+
+  const consistencyScore = parsed.consistencyScore ?? 75;
+  const isConsistent     = parsed.isConsistent     ?? true;
 
   return {
     agent: 'VerificationAgent',
     status: 'complete',
-    summary: parsed.summary ?? `Consistency score: ${parsed.consistencyScore}%. Hypothesis ${parsed.isConsistent ? 'CONFIRMED' : 'UNCERTAIN'}.`,
+    summary: parsed.summary ?? `Consistency score: ${consistencyScore}%. Hypothesis ${isConsistent ? 'CONFIRMED' : 'UNCERTAIN'}.`,
+    trace,
     details: {
-      proposedSource:   parsed.proposedSource   ?? primaryCandidate,
-      consistencyScore: parsed.consistencyScore  ?? 75,
-      isConsistent:     parsed.isConsistent      ?? true,
-      conclusion:       parsed.conclusion        ?? '',
+      proposedSource:   parsed.proposedSource ?? primaryCandidate,
+      consistencyScore,
+      isConsistent,
+      conclusion:       parsed.conclusion     ?? '',
     }
   };
 }

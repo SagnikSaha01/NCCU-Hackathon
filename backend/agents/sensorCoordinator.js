@@ -26,15 +26,14 @@ Respond with a JSON object in this exact shape:
 }
 `.trim();
 
-  const raw    = await invokeAgent(AGENT_ID, prompt);
-  console.log('\n[SensorCoordinator] RAW RESPONSE FROM ORCHESTRATE:\n', raw, '\n');
-  const parsed = extractJSON(raw);
-  console.log('[SensorCoordinator] PARSED:', JSON.stringify(parsed, null, 2));
+  const { content, trace } = await invokeAgent(AGENT_ID, prompt);
+  const parsed = extractJSON(content);
 
   return {
     agent: 'SensorCoordinator',
     status: 'complete',
     summary: parsed.summary ?? `Detected ${parsed.criticalZones?.length ?? 0} critical and ${parsed.elevatedZones?.length ?? 0} elevated zones.`,
+    trace,
     details: {
       criticalZones: parsed.criticalZones ?? [],
       elevatedZones: parsed.elevatedZones ?? [],
