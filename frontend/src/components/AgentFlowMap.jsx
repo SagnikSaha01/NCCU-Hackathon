@@ -3,82 +3,65 @@ import React, { useEffect, useRef, useState, useCallback } from 'react';
 // ─── Agent definitions ────────────────────────────────────────────────────────
 const AGENTS = [
   {
-    id: 'SensorCoordinator',
-    label: 'Sensor\nCoordinator',
-    shortLabel: 'SC',
-    color: '#0ea5e9',
-    description: 'Aggregates real-time particle readings across all 8 cleanroom zones. Classifies each zone as Critical (>1.0 p/m³), Elevated (>0.3 p/m³), or Normal. Outputs a structured zone-status map used by all downstream agents.',
-    icon: '📡',
+    id: 'SensorCoordinator', label: 'Sensor Coord.', color: '#0ea5e9', icon: '📡',
+    description: 'Aggregates real-time particle readings across all 8 cleanroom zones. Classifies each zone as Critical (>1.0 p/m³), Elevated (>0.3 p/m³), or Normal.',
+    input: '8-zone readings', output: 'zone status map',
   },
   {
-    id: 'PhysicsAgent',
-    label: 'Physics\nAgent',
-    shortLabel: 'PA',
-    color: '#6366f1',
-    description: 'Applies fluid-dynamics reasoning to trace contamination upstream against laminar airflow (0.45 m/s, left→right). Identifies candidate source zones based on spatial gradient analysis.',
-    icon: '🌊',
+    id: 'PhysicsAgent', label: 'Physics Agent', color: '#6366f1', icon: '🌊',
+    description: 'Applies fluid-dynamics reasoning to trace contamination upstream against laminar airflow (0.45 m/s, left→right). Identifies candidate source zones.',
+    input: 'zone status map', output: 'source candidate',
   },
   {
-    id: 'PatternAgent',
-    label: 'Pattern\nAgent',
-    shortLabel: 'PTA',
-    color: '#8b5cf6',
-    description: 'Matches the contamination signature — particle size, spread rate, zone gradient — against a historical database of 9 known events. Classifies contamination type (HVAC, Tool Seal, Chemical Outgassing) with a confidence score.',
-    icon: '🔍',
+    id: 'PatternAgent', label: 'Pattern Agent', color: '#8b5cf6', icon: '🔍',
+    description: 'Matches contamination signature against a historical database of 9 known events. Classifies type (HVAC / Tool Seal / Chemical Outgassing) with confidence %.',
+    input: 'spread + particle size', output: 'type + confidence',
   },
   {
-    id: 'CorrelationAgent',
-    label: 'Correlation\nAgent',
-    shortLabel: 'CA',
-    color: '#a855f7',
-    description: 'Cross-references the suspected source zone with equipment maintenance logs. Flags overdue service records, recent interventions, and equipment age as contributing risk factors.',
-    icon: '🔗',
+    id: 'CorrelationAgent', label: 'Correlation', color: '#a855f7', icon: '🔗',
+    description: 'Cross-references the suspected source zone with equipment maintenance logs. Flags overdue service records as contributing risk factors.',
+    input: 'candidate zones + type', output: 'maint. fingerprint',
   },
   {
-    id: 'VerificationAgent',
-    label: 'Verification\nAgent',
-    shortLabel: 'VA',
-    color: '#ec4899',
-    description: 'Performs a consistency check — validates that downstream zones show elevated readings relative to the proposed source, confirming the physics model and pattern match are internally consistent.',
-    icon: '✅',
+    id: 'VerificationAgent', label: 'Verification', color: '#ec4899', icon: '✅',
+    description: 'Validates that downstream zones show elevated readings relative to the proposed source, confirming the physics model is internally consistent.',
+    input: 'primary candidate', output: 'consistency %',
   },
   {
-    id: 'SeverityAgent',
-    label: 'Severity\nAgent',
-    shortLabel: 'SA',
-    color: '#f97316',
-    description: 'Calculates a composite risk score (0–100), assigns a severity level (LOW / MEDIUM / HIGH / CRITICAL), and estimates the lot value at risk based on active wafer inventory and contamination spread.',
-    icon: '⚠️',
+    id: 'SeverityAgent', label: 'Severity Agent', color: '#f97316', icon: '⚠️',
+    description: 'Calculates a composite risk score (0–100), assigns severity (LOW/MEDIUM/HIGH/CRITICAL), and estimates lot value at risk.',
+    input: 'verified source', output: 'risk score + level',
   },
   {
-    id: 'ResponseAgent',
-    label: 'Response\nAgent',
-    shortLabel: 'RA',
-    color: '#22c55e',
-    description: 'Synthesizes all prior agent outputs into a final diagnosis and a prioritized 6–7 step remediation plan. Each action includes urgency, responsible owner, and estimated completion time.',
-    icon: '🛠️',
+    id: 'ResponseAgent', label: 'Response Agent', color: '#22c55e', icon: '🛠️',
+    description: 'Synthesizes all prior agent outputs into a final diagnosis and prioritized 6–7 step remediation plan with urgency, owner, and time per action.',
+    input: 'all agent outputs', output: 'diagnosis + plan',
   },
 ];
 
-const EDGES = [
-  { from: 'SensorCoordinator', to: 'PhysicsAgent',     label: 'zone status' },
-  { from: 'PhysicsAgent',      to: 'PatternAgent',      label: 'source candidate' },
-  { from: 'PatternAgent',      to: 'CorrelationAgent',  label: 'contamination type' },
-  { from: 'CorrelationAgent',  to: 'VerificationAgent', label: 'maintenance data' },
-  { from: 'VerificationAgent', to: 'SeverityAgent',     label: 'verified source' },
-  { from: 'SeverityAgent',     to: 'ResponseAgent',     label: 'risk score' },
+const AGENT_EDGES = [
+  { from: 'SensorCoordinator', to: 'PhysicsAgent' },
+  { from: 'PhysicsAgent',      to: 'PatternAgent' },
+  { from: 'PatternAgent',      to: 'CorrelationAgent' },
+  { from: 'CorrelationAgent',  to: 'VerificationAgent' },
+  { from: 'VerificationAgent', to: 'SeverityAgent' },
+  { from: 'SeverityAgent',     to: 'ResponseAgent' },
 ];
 
-function getAgentStatus(agentId, agentEvents) {
-  if (agentEvents.find(e => e.type === 'AGENT_COMPLETE' && e.agent === agentId)) return 'complete';
-  if (agentEvents.find(e => e.type === 'AGENT_START'    && e.agent === agentId)) return 'active';
-  return 'idle';
-}
+// ── Landscape box dimensions — sized to always contain text ──────────────────
+// All text fits within these fixed sizes regardless of screen width.
+const BX_W = 168;   // landscape width  — wide enough for longest label
+const BX_H = 52;    // landscape height — two lines comfortable
 
-// ─── Animated dot travelling along an SVG path ────────────────────────────────
+const DIM_BORDER = 'rgba(148,163,184,0.25)';
+const DIM_FILL   = 'rgba(15,22,41,0.88)';
+const DIM_LABEL  = 'rgba(200,214,230,0.90)';  // brighter than before
+const DIM_SUB    = 'rgba(120,140,165,0.90)';
+
+// ── Animated dot ──────────────────────────────────────────────────────────────
 function FlowDot({ pathRef, color, duration, active }) {
-  const dotRef = useRef(null);
-  const animRef = useRef(null);
+  const dotRef   = useRef(null);
+  const animRef  = useRef(null);
   const startRef = useRef(null);
 
   const tick = useCallback((ts) => {
@@ -96,392 +79,606 @@ function FlowDot({ pathRef, color, duration, active }) {
 
   useEffect(() => {
     startRef.current = null;
-    animRef.current = requestAnimationFrame(tick);
+    animRef.current  = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(animRef.current);
   }, [tick]);
 
   return (
-    <circle
-      ref={dotRef}
-      r={6}
-      fill={color}
-      opacity={active ? 1 : 0}
-      style={{ filter: `drop-shadow(0 0 8px ${color}) drop-shadow(0 0 3px ${color})`, transition: 'opacity 0.3s' }}
-    />
+    <circle ref={dotRef} r={5} fill={color} opacity={active ? 1 : 0}
+      style={{ filter: `drop-shadow(0 0 7px ${color})`, transition: 'opacity 0.3s' }} />
+  );
+}
+
+function getAgentStatus(agentId, agentEvents) {
+  if (agentEvents.find(e => e.type === 'AGENT_COMPLETE' && e.agent === agentId)) return 'complete';
+  if (agentEvents.find(e => e.type === 'AGENT_START'    && e.agent === agentId)) return 'active';
+  return 'idle';
+}
+
+// ── Landscape node — all text clipped hard to box bounds ─────────────────────
+function LandscapeNode({ x, y, icon, label, sub, clipId, dragging }) {
+  // x,y = top-left corner
+  return (
+    <g>
+      <clipPath id={clipId}>
+        <rect x={x} y={y} width={BX_W} height={BX_H} />
+      </clipPath>
+      <rect x={x} y={y} width={BX_W} height={BX_H} rx={7}
+        fill={DIM_FILL}
+        stroke={dragging ? 'rgba(14,165,233,0.7)' : DIM_BORDER}
+        strokeWidth={dragging ? 1.5 : 1}
+        strokeDasharray={dragging ? '0' : '5 3'} />
+      {/* Drag handle hint — subtle top bar */}
+      <rect x={x} y={y} width={BX_W} height={5} rx={7}
+        fill="rgba(148,163,184,0.08)" />
+      {/* Icon */}
+      <text x={x + 18} y={y + BX_H / 2} fontSize={17}
+        textAnchor="middle" dominantBaseline="middle"
+        clipPath={`url(#${clipId})`} style={{ userSelect: 'none' }}>
+        {icon}
+      </text>
+      {/* Label */}
+      <text x={x + 34} y={y + BX_H * 0.34} fontSize={11.5} fontWeight={700}
+        fill={DIM_LABEL} fontFamily="Inter, sans-serif"
+        dominantBaseline="middle" clipPath={`url(#${clipId})`}
+        style={{ userSelect: 'none' }}>
+        {label}
+      </text>
+      {/* Sub */}
+      <text x={x + 34} y={y + BX_H * 0.68} fontSize={9.5}
+        fill={DIM_SUB} fontFamily="JetBrains Mono, monospace"
+        dominantBaseline="middle" clipPath={`url(#${clipId})`}
+        style={{ userSelect: 'none' }}>
+        {sub}
+      </text>
+      {/* Drag cursor hint */}
+      <title>Drag to move</title>
+    </g>
+  );
+}
+
+// ── Edge label pill — dark bg so it's always readable ────────────────────────
+function EdgePill({ x, y, text, color }) {
+  const W = text.length * 6.5 + 16;
+  const H = 18;
+  return (
+    <g style={{ pointerEvents: 'none' }}>
+      <rect x={x - W / 2} y={y - H / 2} width={W} height={H} rx={4}
+        fill="rgba(8,12,24,0.95)" stroke={color} strokeWidth={0.5} strokeOpacity={0.4} />
+      <text x={x} y={y} textAnchor="middle" dominantBaseline="middle"
+        fontSize={9.5} fill={color} fontFamily="JetBrains Mono, monospace" fontWeight={600}>
+        {text}
+      </text>
+    </g>
   );
 }
 
 // ─── Main component ───────────────────────────────────────────────────────────
 export default function AgentFlowMap({ agentEvents = [] }) {
   const containerRef = useRef(null);
+  const svgRef       = useRef(null);
   const pathRefs     = useRef({});
-  const [dim, setDim]               = useState({ w: 800, h: 500 });
-  const [selectedAgent, setSelectedAgent] = useState(null);
-  const [panelOpen, setPanelOpen]   = useState(false);
 
-  // Measure the container whenever it resizes
+  const [dim, setDim]             = useState({ w: 1100, h: 600 });
+  const [selectedAgent, setSelectedAgent] = useState(null);
+  const [panelOpen, setPanelOpen] = useState(false);
+
+  // ── Draggable node positions (centre x,y) ────────────────────────────────
+  // Keyed by node id. Initialised lazily after first layout measurement.
+  const [positions, setPositions] = useState(null);
+  const dragging = useRef(null); // { id, startMouseX, startMouseY, startNodeX, startNodeY }
+
+  // ── Measure container ────────────────────────────────────────────────────
   useEffect(() => {
     if (!containerRef.current) return;
     const ro = new ResizeObserver(entries => {
       const { width, height } = entries[0].contentRect;
-      setDim({ w: Math.max(width, 300), h: Math.max(height, 200) });
+      setDim({ w: Math.max(width, 500), h: Math.max(height, 320) });
     });
     ro.observe(containerRef.current);
     return () => ro.disconnect();
   }, []);
 
   const { w, h } = dim;
-  const isWide = w > h * 1.2; // horizontal layout when wide
 
-  // Node size — scale up a bit in wide mode
-  const NW = isWide ? 150 : 134;
-  const NH = isWide ? 64  : 56;
-  const PAD_X = isWide ? 0.07 : 0.5;
-  const PAD_Y = isWide ? 0.5  : 0.06;
+  // ── Fixed agent spine layout ─────────────────────────────────────────────
+  const SPINE_Y  = h * 0.50;
+  const PAD_L    = w * 0.04;
+  const PAD_R    = w * 0.04;
+  const USABLE_W = w - PAD_L - PAD_R;
+  const NW       = Math.max(110, Math.min(148, USABLE_W / 8.5));
+  const NH       = 60;
+  const STEP     = USABLE_W / (AGENTS.length - 1);
 
-  // Compute pixel centre for each node
-  const nodePixels = {};
-  AGENTS.forEach((a, i) => {
-    const t = i / (AGENTS.length - 1);
-    nodePixels[a.id] = isWide
-      ? { x: (PAD_X + t * (1 - 2 * PAD_X)) * w, y: PAD_Y * h }
-      : { x: PAD_X * w, y: (PAD_Y + t * (1 - 2 * PAD_Y)) * h };
-  });
+  const agentCX = (i) => PAD_L + i * STEP;
 
-  // Cubic bezier path between two nodes
-  function edgePath(fromId, toId) {
-    const f = nodePixels[fromId];
-    const t = nodePixels[toId];
-    if (isWide) {
-      const x1 = f.x + NW / 2, y1 = f.y;
-      const x2 = t.x - NW / 2, y2 = t.y;
-      const cx = (x1 + x2) / 2;
-      return `M ${x1} ${y1} C ${cx} ${y1}, ${cx} ${y2}, ${x2} ${y2}`;
-    } else {
-      const x1 = f.x, y1 = f.y + NH / 2;
-      const x2 = t.x, y2 = t.y - NH / 2;
-      const cy = (y1 + y2) / 2;
-      return `M ${x1} ${y1} C ${x1} ${cy}, ${x2} ${cy}, ${x2} ${y2}`;
-    }
+  // ── Default positions for draggable nodes ───────────────────────────────
+  // Called once after dim is known (or reset when dim changes significantly).
+  const defaultPositions = useCallback(() => {
+    const TOP_Y = SPINE_Y - NH / 2 - BX_H - 50;  // above agent row
+    const BOT_Y = SPINE_Y + NH / 2 + 55;           // below agent row
+    const ORIGH = SPINE_Y;
+
+    return {
+      // Input nodes (above spine)
+      trigger:   { x: agentCX(0),              y: TOP_Y },
+      sse:       { x: agentCX(0) + STEP * 0.6, y: TOP_Y },
+      readings:  { x: agentCX(0) + STEP * 1.2, y: TOP_Y },
+      // Data stores (below spine)
+      zonemap:   { x: agentCX(1) - STEP * 0.2, y: BOT_Y },
+      airflow:   { x: agentCX(1) + STEP * 0.5, y: BOT_Y },
+      patterns:  { x: agentCX(2) + STEP * 0.1, y: BOT_Y },
+      maintlogs: { x: agentCX(3) + STEP * 0.1, y: BOT_Y },
+      // Output nodes (right of ResponseAgent)
+      diagnosis: { x: agentCX(6) + STEP * 0.45, y: ORIGH - 58 },
+      actionplan:{ x: agentCX(6) + STEP * 0.45, y: ORIGH },
+      approval:  { x: agentCX(6) + STEP * 0.45, y: ORIGH + 58 },
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [w, h]);
+
+  // Init positions when layout known; reset if canvas changes size a lot
+  useEffect(() => {
+    setPositions(defaultPositions());
+  }, [defaultPositions]);
+
+  // ── Drag handlers ────────────────────────────────────────────────────────
+  const handleMouseDown = useCallback((id, e) => {
+    e.stopPropagation();
+    const svgRect = svgRef.current.getBoundingClientRect();
+    dragging.current = {
+      id,
+      startMouseX: e.clientX - svgRect.left,
+      startMouseY: e.clientY - svgRect.top,
+      startNodeX:  positions[id].x,
+      startNodeY:  positions[id].y,
+    };
+  }, [positions]);
+
+  const handleMouseMove = useCallback((e) => {
+    if (!dragging.current || !svgRef.current) return;
+    const svgRect = svgRef.current.getBoundingClientRect();
+    const mx = e.clientX - svgRect.left;
+    const my = e.clientY - svgRect.top;
+    const dx = mx - dragging.current.startMouseX;
+    const dy = my - dragging.current.startMouseY;
+    setPositions(prev => ({
+      ...prev,
+      [dragging.current.id]: {
+        x: dragging.current.startNodeX + dx,
+        y: dragging.current.startNodeY + dy,
+      },
+    }));
+  }, []);
+
+  const handleMouseUp = useCallback(() => {
+    dragging.current = null;
+  }, []);
+
+  // ── Agent edge paths ─────────────────────────────────────────────────────
+  function agentEdgePath(fi, ti) {
+    const x1 = agentCX(fi) + NW / 2, x2 = agentCX(ti) - NW / 2, y = SPINE_Y;
+    const cx = (x1 + x2) / 2;
+    return `M ${x1} ${y} C ${cx} ${y}, ${cx} ${y}, ${x2} ${y}`;
   }
 
   function edgeActive(fromId) {
     return getAgentStatus(fromId, agentEvents) === 'complete';
   }
 
-  // Edge label midpoint
-  function edgeLabelPos(fromId, toId) {
-    const f = nodePixels[fromId];
-    const t = nodePixels[toId];
-    return isWide
-      ? { x: (f.x + t.x) / 2, y: f.y - 14 }
-      : { x: f.x + NW / 2 + 8, y: (f.y + t.y) / 2, anchor: 'start' };
-  }
+  AGENT_EDGES.forEach(e => {
+    const pid = `path-${e.from}-${e.to}`;
+    if (!pathRefs.current[pid]) pathRefs.current[pid] = React.createRef();
+  });
+
+  // ── Connector line from a draggable node centre to a fixed agent ─────────
+  // node centre = pos.x + BX_W/2, pos.y + BX_H/2
+  const lineTo = (pos, ax, ay) => {
+    const ncx = pos.x + BX_W / 2;
+    const ncy = pos.y + BX_H / 2;
+    return `M ${ncx} ${ncy} L ${ax} ${ay}`;
+  };
+
+  if (!positions) return null; // wait for layout
+
+  const isComplete = agentEvents.some(e => e.type === 'AGENT_COMPLETE' && e.agent === 'ResponseAgent');
+  const isDraggingAny = !!dragging.current;
 
   return (
-    <div
-      ref={containerRef}
-      style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', position: 'relative', minHeight: 0, background: 'var(--bg-dark)' }}
-    >
+    <div ref={containerRef}
+      style={{ flex: 1, width: '100%', minWidth: 0, display: 'flex', flexDirection: 'column',
+        overflow: 'hidden', position: 'relative', minHeight: 0, background: 'var(--bg-dark)' }}>
+
       {/* ── Title bar ── */}
       <div style={{
-        padding: '10px 20px',
-        borderBottom: '1px solid var(--border)',
-        background: 'var(--bg-panel)',
-        display: 'flex',
-        alignItems: 'center',
-        gap: 10,
-        flexShrink: 0,
+        padding: '10px 20px', borderBottom: '1px solid var(--border)',
+        background: 'var(--bg-panel)', display: 'flex', alignItems: 'center',
+        gap: 10, flexShrink: 0,
       }}>
-        <span style={{ fontSize: '0.8rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--text-secondary)' }}>
+        <span style={{ fontSize: '0.8rem', fontWeight: 700, textTransform: 'uppercase',
+          letterSpacing: '0.1em', color: 'var(--text-secondary)' }}>
           🔀 Agent Pipeline — Live Data Flow
         </span>
-        <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontFamily: 'JetBrains Mono, monospace', marginLeft: 8 }}>
+        <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)',
+          fontFamily: 'JetBrains Mono, monospace', marginLeft: 8 }}>
           {agentEvents.filter(e => e.type === 'AGENT_COMPLETE').length} / 7 agents complete
         </span>
-        <div style={{ marginLeft: 'auto', display: 'flex', gap: 16, alignItems: 'center', fontSize: '0.65rem', fontFamily: 'JetBrains Mono, monospace', color: 'var(--text-muted)' }}>
-          <span><span style={{ color: '#22c55e' }}>●</span> DONE</span>
-          <span><span style={{ color: '#0ea5e9', animation: 'flowPulse 1s infinite' }}>●</span> RUNNING</span>
-          <span><span style={{ color: '#1e2d4a' }}>○</span> IDLE</span>
-          <span style={{ color: 'var(--text-muted)', marginLeft: 4 }}>Click node for details</span>
+        <div style={{ marginLeft: 'auto', display: 'flex', gap: 14, alignItems: 'center',
+          fontSize: '0.65rem', fontFamily: 'JetBrains Mono, monospace', color: 'var(--text-muted)' }}>
+          <span><span style={{ color: '#0ea5e9' }}>■</span> Agents (click)</span>
+          <span><span style={{ color: DIM_LABEL }}>⠿</span> Drag to reposition</span>
+          <span style={{ color: '#22c55e' }}>● DONE</span>
+          <span style={{ color: '#eab308' }}>● RUNNING</span>
+          <span style={{ color: '#475569' }}>○ IDLE</span>
         </div>
       </div>
 
       {/* ── SVG canvas ── */}
-      <svg
-        width={w}
-        height={h - 44}
-        viewBox={`0 0 ${w} ${h - 44}`}
-        style={{ flex: 1, display: 'block' }}
-      >
+      <svg ref={svgRef} width={w} height={h} viewBox={`0 0 ${w} ${h}`}
+        style={{ flex: 1, display: 'block', cursor: isDraggingAny ? 'grabbing' : 'default' }}
+        onMouseMove={handleMouseMove}
+        onMouseUp={handleMouseUp}
+        onMouseLeave={handleMouseUp}>
         <defs>
-          {EDGES.map(e => {
+          {AGENT_EDGES.map(e => {
+            const agent  = AGENTS.find(a => a.id === e.from);
             const active = edgeActive(e.from);
-            const fromAgent = AGENTS.find(a => a.id === e.from);
             return (
-              <marker
-                key={`arrow-${e.from}`}
-                id={`arrow-${e.from}`}
-                markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto"
-              >
-                <polygon
-                  points="0 0, 9 3.5, 0 7"
-                  fill={active ? fromAgent.color : '#1e2d4a'}
-                  opacity={active ? 1 : 0.5}
-                />
+              <marker key={`arr-${e.from}`} id={`arr-${e.from}`}
+                markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto">
+                <polygon points="0 0, 9 3.5, 0 7"
+                  fill={active ? agent.color : '#1e2d4a'} opacity={active ? 1 : 0.5} />
               </marker>
             );
           })}
+          <marker id="arr-dim" markerWidth="7" markerHeight="6" refX="6" refY="3" orient="auto">
+            <polygon points="0 0, 7 3, 0 6" fill={DIM_BORDER} />
+          </marker>
+          <marker id="arr-out" markerWidth="7" markerHeight="6" refX="6" refY="3" orient="auto">
+            <polygon points="0 0, 7 3, 0 6" fill="rgba(34,197,94,0.6)" />
+          </marker>
         </defs>
 
-        {/* ── Edges ── */}
-        {EDGES.map(e => {
-          const active = edgeActive(e.from);
-          const fromAgent = AGENTS.find(a => a.id === e.from);
-          const d = edgePath(e.from, e.to);
-          const pid = `path-${e.from}-${e.to}`;
-          if (!pathRefs.current[pid]) pathRefs.current[pid] = React.createRef();
-          const lp = edgeLabelPos(e.from, e.to);
+        {/* ══ SECTION LABELS ══════════════════════════════════════════════════ */}
+        {[
+          { t: '▸ INPUT PIPELINE',  x: PAD_L,           y: positions.trigger.y - 10 },
+          { t: '▸ DATA STORES',     x: PAD_L,           y: positions.zonemap.y - 10 },
+          { t: '▸ OUTPUTS',         x: positions.diagnosis.x, y: positions.diagnosis.y - 10 },
+        ].map(l => (
+          <text key={l.t} x={l.x} y={l.y} fontSize={10} fontWeight={700} fill={DIM_SUB}
+            fontFamily="JetBrains Mono, monospace" letterSpacing="0.08em">
+            {l.t}
+          </text>
+        ))}
+
+        {/* ══ INPUT NODE CONNECTORS ═══════════════════════════════════════════ */}
+        {/* trigger → sse */}
+        <path d={`M ${positions.trigger.x + BX_W} ${positions.trigger.y + BX_H/2} L ${positions.sse.x} ${positions.sse.y + BX_H/2}`}
+          fill="none" stroke={DIM_BORDER} strokeWidth={1.5} markerEnd="url(#arr-dim)" />
+        {/* sse → readings */}
+        <path d={`M ${positions.sse.x + BX_W} ${positions.sse.y + BX_H/2} L ${positions.readings.x} ${positions.readings.y + BX_H/2}`}
+          fill="none" stroke={DIM_BORDER} strokeWidth={1.5} markerEnd="url(#arr-dim)" />
+        {/* readings → SensorCoordinator */}
+        <path d={lineTo(positions.readings, agentCX(0), SPINE_Y - NH / 2)}
+          fill="none" stroke={DIM_BORDER} strokeWidth={1.5}
+          strokeDasharray="5 4" markerEnd="url(#arr-dim)" />
+
+        {/* ══ STORE → AGENT CONNECTORS ════════════════════════════════════════ */}
+        {[
+          { id: 'zonemap',   agentIdx: 1 },
+          { id: 'airflow',   agentIdx: 1 },
+          { id: 'patterns',  agentIdx: 2 },
+          { id: 'maintlogs', agentIdx: 3 },
+        ].map(s => (
+          <path key={s.id}
+            d={lineTo(positions[s.id], agentCX(s.agentIdx), SPINE_Y + NH / 2)}
+            fill="none" stroke={DIM_BORDER} strokeWidth={1.2}
+            strokeDasharray="4 3" markerEnd="url(#arr-dim)" />
+        ))}
+
+        {/* ══ RESPONSE AGENT → OUTPUT CONNECTORS ══════════════════════════════ */}
+        {['diagnosis', 'actionplan', 'approval'].map(id => (
+          <path key={id}
+            d={`M ${agentCX(6) + NW/2} ${SPINE_Y} L ${positions[id].x} ${positions[id].y + BX_H/2}`}
+            fill="none" stroke="rgba(34,197,94,0.3)"
+            strokeWidth={1.3} strokeDasharray="4 3" markerEnd="url(#arr-out)" />
+        ))}
+
+        {/* ══ AGENT EDGES (main spine) ════════════════════════════════════════ */}
+        {AGENT_EDGES.map((e) => {
+          const fi  = AGENTS.findIndex(a => a.id === e.from);
+          const ti  = AGENTS.findIndex(a => a.id === e.to);
+          const active     = edgeActive(e.from);
+          const fromAgent  = AGENTS[fi];
+          const d          = agentEdgePath(fi, ti);
+          const pid        = `path-${e.from}-${e.to}`;
+          const midX       = (agentCX(fi) + NW/2 + agentCX(ti) - NW/2) / 2;
+          const midY       = SPINE_Y - NH/2 - 14;
 
           return (
             <g key={pid}>
-              {/* dim background track */}
               <path d={d} fill="none" stroke="#1e2d4a" strokeWidth={2} />
-              {/* active coloured track */}
-              <path
-                ref={pathRefs.current[pid]}
-                id={pid}
-                d={d}
-                fill="none"
-                stroke={fromAgent.color}
+              <path ref={pathRefs.current[pid]} id={pid} d={d}
+                fill="none" stroke={fromAgent.color}
                 strokeWidth={active ? 2.5 : 0}
-                strokeOpacity={active ? 0.7 : 0}
-                markerEnd={`url(#arrow-${e.from})`}
-                style={{ transition: 'stroke-opacity 0.6s, stroke-width 0.6s' }}
-              />
-              {/* data label */}
-              {active && (
-                <text
-                  x={lp.x} y={lp.y}
-                  textAnchor={lp.anchor || 'middle'}
-                  fontSize={isWide ? 10 : 9}
-                  fill={fromAgent.color}
-                  opacity={0.75}
-                  fontFamily="JetBrains Mono, monospace"
-                  style={{ pointerEvents: 'none' }}
-                >
-                  {e.label}
-                </text>
-              )}
-              {/* animated dot */}
-              {active && (
-                <FlowDot
-                  pathRef={pathRefs.current[pid]}
-                  color={fromAgent.color}
-                  duration={1.6}
-                  active={active}
-                />
-              )}
+                strokeOpacity={active ? 0.8 : 0}
+                markerEnd={`url(#arr-${e.from})`}
+                style={{ transition: 'stroke-opacity 0.5s, stroke-width 0.5s' }} />
+              {active && <EdgePill x={midX} y={midY} text={fromAgent.output} color={fromAgent.color} />}
+              {active && <FlowDot pathRef={pathRefs.current[pid]} color={fromAgent.color} duration={1.5} active />}
             </g>
           );
         })}
 
-        {/* ── Nodes ── */}
-        {AGENTS.map(agent => {
-          const { x, y } = nodePixels[agent.id];
-          const status = getAgentStatus(agent.id, agentEvents);
-          const isSelected = selectedAgent?.id === agent.id;
-          const nx = x - NW / 2;
-          const ny = y - NH / 2;
+        {/* ══ INPUT NODES (draggable) ═════════════════════════════════════════ */}
+        {[
+          { id: 'trigger',  icon: '▶', label: 'Scenario Trigger', sub: 'User selects A / B / C' },
+          { id: 'sse',      icon: '⚡', label: 'SSE Endpoint',     sub: '/api/investigate/:key' },
+          { id: 'readings', icon: '📊', label: 'Sensor Readings',  sub: '8 zones · particles/trend/size' },
+        ].map(inp => {
+          const pos = positions[inp.id];
+          const isBeingDragged = dragging.current?.id === inp.id;
+          return (
+            <g key={inp.id}
+              style={{ cursor: 'grab' }}
+              onMouseDown={(e) => handleMouseDown(inp.id, e)}>
+              <LandscapeNode x={pos.x} y={pos.y}
+                icon={inp.icon} label={inp.label} sub={inp.sub}
+                clipId={`clip-${inp.id}`} dragging={isBeingDragged} />
+            </g>
+          );
+        })}
 
-          const borderColor = status !== 'idle' ? agent.color : '#1e2d4a';
-          const bgColor     = status === 'complete' ? `${agent.color}22`
-                            : status === 'active'   ? `${agent.color}16`
-                            : '#0f1629';
+        {/* ══ DATA STORE NODES (draggable) ════════════════════════════════════ */}
+        {[
+          { id: 'zonemap',   icon: '🗺',  label: 'Zone Map',        sub: '8 zones · row/col grid' },
+          { id: 'airflow',   icon: '💨',  label: 'Airflow Model',   sub: '0.45 m/s · left → right' },
+          { id: 'patterns',  icon: '📜',  label: 'Hist. Patterns',  sub: '9 events · 3 types' },
+          { id: 'maintlogs', icon: '🔧',  label: 'Maint. Logs',     sub: '8 zones · overdue flags' },
+        ].map(s => {
+          const pos = positions[s.id];
+          const isBeingDragged = dragging.current?.id === s.id;
+          return (
+            <g key={s.id} style={{ cursor: 'grab' }}
+              onMouseDown={(e) => handleMouseDown(s.id, e)}>
+              {/* Cylinder cap */}
+              <ellipse cx={pos.x + BX_W/2} cy={pos.y}
+                rx={BX_W/2} ry={6}
+                fill="rgba(30,45,74,0.7)" stroke={DIM_BORDER} strokeWidth={1} />
+              <LandscapeNode x={pos.x} y={pos.y}
+                icon={s.icon} label={s.label} sub={s.sub}
+                clipId={`clip-${s.id}`} dragging={isBeingDragged} />
+            </g>
+          );
+        })}
+
+        {/* ══ AGENT NODES (fixed, non-draggable) ════════════════════════════ */}
+        {AGENTS.map((agent, i) => {
+          const cx = agentCX(i), cy = SPINE_Y;
+          const nx = cx - NW/2, ny = cy - NH/2;
+          const status     = getAgentStatus(agent.id, agentEvents);
+          const isSelected = selectedAgent?.id === agent.id;
+          const bgColor    = status === 'complete' ? `${agent.color}22`
+                           : status === 'active'   ? `${agent.color}18` : '#0f1629';
+          const border     = status !== 'idle' ? agent.color : '#1e2d4a';
 
           return (
-            <g
-              key={agent.id}
+            <g key={agent.id}
               onClick={() => { setSelectedAgent(isSelected ? null : agent); setPanelOpen(true); }}
-              style={{ cursor: 'pointer' }}
-            >
-              {/* glow halo for active/complete */}
+              style={{ cursor: 'pointer' }}>
               {status !== 'idle' && (
-                <rect
-                  x={nx - 5} y={ny - 5}
-                  width={NW + 10} height={NH + 10}
-                  rx={13} fill="none"
-                  stroke={agent.color}
+                <rect x={nx-5} y={ny-5} width={NW+10} height={NH+10} rx={12}
+                  fill="none" stroke={agent.color}
                   strokeWidth={status === 'active' ? 2 : 1.5}
-                  opacity={status === 'active' ? 0.5 : 0.25}
-                  style={{
-                    filter: `blur(${status === 'active' ? 8 : 5}px)`,
-                    animation: status === 'active' ? 'flowPulse 1.4s ease-in-out infinite' : 'none',
-                  }}
-                />
+                  opacity={status === 'active' ? 0.5 : 0.2}
+                  style={{ filter: `blur(${status === 'active' ? 9 : 5}px)`,
+                    animation: status === 'active' ? 'flowPulse 1.4s ease-in-out infinite' : 'none' }} />
               )}
-              {/* node body */}
-              <rect
-                x={nx} y={ny} width={NW} height={NH} rx={9}
-                fill={bgColor}
-                stroke={isSelected ? 'white' : borderColor}
-                strokeWidth={isSelected ? 2 : 1}
-                style={{ transition: 'all 0.3s' }}
-              />
-              {/* status pip */}
-              <circle
-                cx={nx + NW - 13} cy={ny + 13} r={5}
+              <rect x={nx} y={ny} width={NW} height={NH} rx={8}
+                fill={bgColor} stroke={isSelected ? 'white' : border}
+                strokeWidth={isSelected ? 2 : 1} style={{ transition: 'all 0.3s' }} />
+              <circle cx={nx+NW-12} cy={ny+12} r={5}
                 fill={status === 'complete' ? '#22c55e' : status === 'active' ? agent.color : '#1e2d4a'}
                 style={{
                   filter: status !== 'idle' ? `drop-shadow(0 0 5px ${status === 'complete' ? '#22c55e' : agent.color})` : 'none',
-                  animation: status === 'active' ? 'flowPulse 1s ease-in-out infinite' : 'none',
-                }}
-              />
-              {/* icon */}
-              <text x={nx + 16} y={ny + NH / 2 + 6} fontSize={isWide ? 18 : 16} textAnchor="middle" style={{ userSelect: 'none' }}>
-                {agent.icon}
-              </text>
-              {/* name lines */}
-              {agent.label.split('\n').map((line, i) => (
-                <text
-                  key={i}
-                  x={nx + 30} y={ny + NH / 2 - 4 + i * (isWide ? 15 : 13)}
-                  fontSize={isWide ? 12 : 11}
-                  fontWeight={600}
-                  fill={status !== 'idle' ? agent.color : '#94a3b8'}
-                  fontFamily="Inter, sans-serif"
-                  style={{ transition: 'fill 0.3s', userSelect: 'none' }}
-                >
-                  {line}
-                </text>
-              ))}
-              {/* status label below node */}
-              <text
-                x={x} y={ny + NH + (isWide ? 16 : 14)}
-                textAnchor="middle"
-                fontSize={isWide ? 10 : 9}
-                fill={status === 'complete' ? '#22c55e' : status === 'active' ? agent.color : '#475569'}
-                fontFamily="JetBrains Mono, monospace"
-                style={{ userSelect: 'none' }}
-              >
-                {status === 'complete' ? '✓ DONE' : status === 'active' ? '● RUNNING' : '○ IDLE'}
-              </text>
+                  animation: status === 'active' ? 'flowPulse 1s ease-in-out infinite' : 'none' }} />
+              <text x={nx+15} y={cy} fontSize={16} textAnchor="middle"
+                dominantBaseline="middle" style={{ userSelect: 'none' }}>{agent.icon}</text>
+              <text x={nx+28} y={cy} fontSize={11} fontWeight={700}
+                fill={status !== 'idle' ? agent.color : '#94a3b8'}
+                fontFamily="Inter, sans-serif" dominantBaseline="middle"
+                style={{ transition: 'fill 0.3s', userSelect: 'none' }}>{agent.label}</text>
+              {/* Status pill */}
+              {(() => {
+                const txt = status === 'complete' ? '✓ DONE' : status === 'active' ? '● RUNNING' : '○ IDLE';
+                const clr = status === 'complete' ? '#22c55e' : status === 'active' ? agent.color : '#475569';
+                const pw  = txt.length * 6.5 + 14;
+                return (
+                  <g>
+                    <rect x={cx - pw/2} y={ny+NH+4} width={pw} height={17} rx={4}
+                      fill="rgba(8,12,24,0.92)" />
+                    <text x={cx} y={ny+NH+13} textAnchor="middle" dominantBaseline="middle"
+                      fontSize={9.5} fill={clr} fontFamily="JetBrains Mono, monospace" fontWeight={600}
+                      style={{ userSelect: 'none' }}>{txt}</text>
+                  </g>
+                );
+              })()}
             </g>
           );
         })}
+
+        {/* ══ OUTPUT NODES (draggable) ════════════════════════════════════════ */}
+        {[
+          { id: 'diagnosis',  icon: '🔬', label: 'Diagnosis',      sub: 'source · type · confidence',  color: '#22c55e' },
+          { id: 'actionplan', icon: '📋', label: 'Action Plan',    sub: '6-7 steps · urgency · owner',  color: '#22c55e' },
+          { id: 'approval',   icon: '👤', label: 'Eng. Approval',  sub: 'human-in-the-loop gate',       color: '#eab308' },
+        ].map(out => {
+          const pos = positions[out.id];
+          const isAct = isComplete;
+          const isBeingDragged = dragging.current?.id === out.id;
+          return (
+            <g key={out.id} style={{ cursor: 'grab' }}
+              onMouseDown={(e) => handleMouseDown(out.id, e)}>
+              <rect x={pos.x} y={pos.y} width={BX_W} height={BX_H} rx={7}
+                fill={isAct ? 'rgba(34,197,94,0.07)' : DIM_FILL}
+                stroke={isBeingDragged ? 'white' : isAct ? out.color : DIM_BORDER}
+                strokeWidth={isBeingDragged ? 2 : 1}
+                strokeDasharray={isAct ? '0' : '5 3'}
+                style={{ transition: 'all 0.4s' }} />
+              <rect x={pos.x} y={pos.y} width={BX_W} height={5} rx={7}
+                fill="rgba(148,163,184,0.08)" />
+              <text x={pos.x+18} y={pos.y+BX_H/2} fontSize={17} textAnchor="middle"
+                dominantBaseline="middle" style={{ userSelect: 'none' }}>{out.icon}</text>
+              <clipPath id={`clip-${out.id}`}>
+                <rect x={pos.x} y={pos.y} width={BX_W} height={BX_H} />
+              </clipPath>
+              <text x={pos.x+34} y={pos.y+BX_H*0.34} fontSize={11.5} fontWeight={700}
+                fill={isAct ? (out.color === '#eab308' ? '#eab308' : '#e2e8f0') : DIM_LABEL}
+                fontFamily="Inter, sans-serif" dominantBaseline="middle"
+                clipPath={`url(#clip-${out.id})`} style={{ transition: 'fill 0.4s', userSelect: 'none' }}>
+                {out.label}
+              </text>
+              <text x={pos.x+34} y={pos.y+BX_H*0.68} fontSize={9.5}
+                fill={DIM_SUB} fontFamily="JetBrains Mono, monospace" dominantBaseline="middle"
+                clipPath={`url(#clip-${out.id})`} style={{ userSelect: 'none' }}>
+                {out.sub}
+              </text>
+              <title>Drag to move</title>
+            </g>
+          );
+        })}
+
+        {/* ══ DECORATIVE BADGES ═══════════════════════════════════════════════ */}
+        {/* ISO Class 5 — top right */}
+        {(() => {
+          const bw = 152, bh = 40, bx = w - bw - 14, by = 10;
+          return (
+            <g>
+              <rect x={bx} y={by} width={bw} height={bh} rx={6}
+                fill="rgba(14,165,233,0.07)" stroke="rgba(14,165,233,0.3)" strokeWidth={1} />
+              <text x={bx+bw/2} y={by+14} textAnchor="middle" fontSize={11}
+                fill="rgba(14,165,233,0.9)" fontFamily="JetBrains Mono, monospace" fontWeight={700}>
+                ISO CLASS 5
+              </text>
+              <text x={bx+bw/2} y={by+29} textAnchor="middle" fontSize={9.5}
+                fill={DIM_SUB} fontFamily="JetBrains Mono, monospace">
+                ≤100 particles/ft³ · 0.3µm+
+              </text>
+            </g>
+          );
+        })()}
+
+        {/* Completion badge — bottom right */}
+        {isComplete && (() => {
+          const bw = 158, bh = 44, bx = w - bw - 14, by = h - bh - 12;
+          return (
+            <g>
+              <rect x={bx} y={by} width={bw} height={bh} rx={6}
+                fill="rgba(34,197,94,0.09)" stroke="rgba(34,197,94,0.4)" strokeWidth={1} />
+              <text x={bx+bw/2} y={by+16} textAnchor="middle"
+                fontSize={13} fill="#22c55e" fontFamily="JetBrains Mono, monospace" fontWeight={700}>
+                ✓ ~2 min 17 sec
+              </text>
+              <text x={bx+bw/2} y={by+32} textAnchor="middle"
+                fontSize={9.5} fill={DIM_SUB} fontFamily="JetBrains Mono, monospace">
+                vs 4-8 hrs manual investigation
+              </text>
+            </g>
+          );
+        })()}
+
       </svg>
 
       {/* ── Flow Details button ── */}
-      <button
-        onClick={() => setPanelOpen(p => !p)}
+      <button onClick={() => setPanelOpen(p => !p)}
         style={{
-          position: 'absolute',
-          bottom: 20,
-          right: 20,
+          position: 'absolute', bottom: 20, right: 20,
           background: panelOpen ? 'rgba(14,165,233,0.22)' : 'rgba(15,22,41,0.92)',
-          border: '1px solid var(--accent-blue)',
-          borderRadius: 20,
-          color: 'var(--accent-blue)',
-          fontSize: '0.72rem',
-          fontFamily: 'JetBrains Mono, monospace',
-          padding: '7px 16px',
-          cursor: 'pointer',
-          display: 'flex',
-          alignItems: 'center',
-          gap: 7,
-          zIndex: 10,
-          backdropFilter: 'blur(10px)',
-          transition: 'all 0.2s',
+          border: '1px solid var(--accent-blue)', borderRadius: 20,
+          color: 'var(--accent-blue)', fontSize: '0.72rem',
+          fontFamily: 'JetBrains Mono, monospace', padding: '7px 16px',
+          cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 7,
+          zIndex: 10, backdropFilter: 'blur(10px)', transition: 'all 0.2s',
           boxShadow: panelOpen ? '0 0 14px rgba(14,165,233,0.3)' : 'none',
-        }}
-      >
+        }}>
         <span>ℹ</span>
         {panelOpen ? 'Hide Details' : 'Flow Details'}
       </button>
 
       {/* ── Detail panel ── */}
       {panelOpen && (
-        <div
-          style={{
-            position: 'absolute',
-            bottom: 60,
-            right: 20,
-            width: 300,
-            maxHeight: '60vh',
-            overflowY: 'auto',
-            background: '#0f1629',
-            border: '1px solid #1e2d4a',
-            borderRadius: 10,
-            padding: 16,
-            zIndex: 20,
-            boxShadow: '0 12px 40px rgba(0,0,0,0.6)',
-            animation: 'flowFadeIn 0.2s ease forwards',
-          }}
-        >
+        <div style={{
+          position: 'absolute', bottom: 60, right: 20,
+          width: 310, maxHeight: '65vh', overflowY: 'auto',
+          background: '#0f1629', border: '1px solid #1e2d4a', borderRadius: 10,
+          padding: 18, zIndex: 20, boxShadow: '0 12px 40px rgba(0,0,0,0.65)',
+          animation: 'flowFadeIn 0.2s ease forwards',
+        }}>
           {selectedAgent ? (
-            /* ─ Selected agent detail ─ */
             <>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
                 <span style={{ fontSize: '1.3rem' }}>{selectedAgent.icon}</span>
-                <span style={{ fontSize: '0.85rem', fontWeight: 700, color: selectedAgent.color, fontFamily: 'JetBrains Mono, monospace' }}>
-                  {selectedAgent.id}
-                </span>
-                <button
-                  onClick={() => setSelectedAgent(null)}
-                  style={{ marginLeft: 'auto', background: 'none', border: 'none', color: '#475569', cursor: 'pointer', fontSize: '1.1rem', lineHeight: 1 }}
-                >
-                  ×
-                </button>
+                <span style={{ fontSize: '0.88rem', fontWeight: 700, color: selectedAgent.color,
+                  fontFamily: 'JetBrains Mono, monospace' }}>{selectedAgent.id}</span>
+                <button onClick={() => setSelectedAgent(null)}
+                  style={{ marginLeft: 'auto', background: 'none', border: 'none',
+                    color: '#475569', cursor: 'pointer', fontSize: '1.1rem' }}>×</button>
               </div>
-              <p style={{ fontSize: '0.75rem', color: '#94a3b8', lineHeight: 1.65, marginBottom: 12 }}>
+              <p style={{ fontSize: '0.78rem', color: '#94a3b8', lineHeight: 1.65, marginBottom: 12 }}>
                 {selectedAgent.description}
               </p>
+              <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
+                {[{ label: 'INPUT', val: selectedAgent.input }, { label: 'OUTPUT', val: selectedAgent.output }].map(r => (
+                  <div key={r.label} style={{ flex: 1, padding: '8px 10px',
+                    background: 'rgba(255,255,255,0.04)', borderRadius: 6, border: '1px solid #1e2d4a' }}>
+                    <div style={{ fontSize: '0.62rem', color: '#475569',
+                      fontFamily: 'JetBrains Mono, monospace', marginBottom: 4 }}>{r.label}</div>
+                    <div style={{ fontSize: '0.74rem', color: '#94a3b8' }}>{r.val}</div>
+                  </div>
+                ))}
+              </div>
               {(() => {
                 const ev = agentEvents.find(e => e.type === 'AGENT_COMPLETE' && e.agent === selectedAgent.id);
-                if (!ev) return (
-                  <div style={{ fontSize: '0.68rem', color: '#475569', fontFamily: 'JetBrains Mono, monospace' }}>
-                    No output yet — agent has not completed.
-                  </div>
-                );
+                if (!ev) return <div style={{ fontSize: '0.72rem', color: '#475569', fontFamily: 'JetBrains Mono, monospace' }}>No output yet.</div>;
                 return (
-                  <div style={{ padding: '10px 12px', background: `${selectedAgent.color}14`, border: `1px solid ${selectedAgent.color}40`, borderRadius: 7 }}>
-                    <div style={{ fontSize: '0.6rem', color: '#475569', fontFamily: 'JetBrains Mono, monospace', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-                      Live Output
-                    </div>
-                    <div style={{ fontSize: '0.74rem', color: '#e2e8f0', lineHeight: 1.55 }}>
-                      {ev.summary}
-                    </div>
+                  <div style={{ padding: '10px 12px', background: `${selectedAgent.color}14`,
+                    border: `1px solid ${selectedAgent.color}40`, borderRadius: 7 }}>
+                    <div style={{ fontSize: '0.62rem', color: '#475569', fontFamily: 'JetBrains Mono, monospace',
+                      marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Live Output</div>
+                    <div style={{ fontSize: '0.76rem', color: '#e2e8f0', lineHeight: 1.55 }}>{ev.summary}</div>
                   </div>
                 );
               })()}
             </>
           ) : (
-            /* ─ Pipeline overview ─ */
             <>
-              <div style={{ fontSize: '0.68rem', color: '#475569', fontFamily: 'JetBrains Mono, monospace', marginBottom: 10, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-                Pipeline Overview
-              </div>
-              <p style={{ fontSize: '0.74rem', color: '#94a3b8', lineHeight: 1.6, marginBottom: 12 }}>
-                Seven specialized agents run sequentially. Each passes structured output to the next, progressively building a complete contamination diagnosis.
+              <div style={{ fontSize: '0.7rem', color: '#475569', fontFamily: 'JetBrains Mono, monospace',
+                marginBottom: 10, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Full System Flow</div>
+              <p style={{ fontSize: '0.76rem', color: '#94a3b8', lineHeight: 1.65, marginBottom: 14 }}>
+                User triggers a scenario → SSE endpoint streams events → 7 agents run sequentially,
+                consulting data stores → diagnosis + action plan → engineer approval.
               </p>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
-                {EDGES.map(e => {
-                  const fromAgent = AGENTS.find(a => a.id === e.from);
-                  const toAgent   = AGENTS.find(a => a.id === e.to);
-                  const active    = edgeActive(e.from);
-                  return (
-                    <div key={`${e.from}-${e.to}`} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.68rem', fontFamily: 'JetBrains Mono, monospace', opacity: active ? 1 : 0.45 }}>
-                      <span style={{ color: fromAgent.color }}>{fromAgent.shortLabel}</span>
-                      <span style={{ color: '#1e2d4a', flex: 'none' }}>──</span>
-                      <span style={{ color: active ? '#94a3b8' : '#475569', flex: 1 }}>{e.label}</span>
-                      <span style={{ color: '#1e2d4a', flex: 'none' }}>→</span>
-                      <span style={{ color: toAgent.color }}>{toAgent.shortLabel}</span>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                {[
+                  { label: 'Trigger', sub: 'Scenario A/B/C selected by user', color: DIM_LABEL },
+                  { label: 'SSE Endpoint', sub: '/api/investigate/:key → streams events', color: DIM_LABEL },
+                  { label: 'Sensor Readings', sub: '8 zones × particles, trend, size', color: DIM_LABEL },
+                  { label: '7 Agent Pipeline', sub: 'Sequential · each builds on last', color: '#0ea5e9' },
+                  { label: 'Data Stores', sub: 'Zone map · airflow · patterns · maint. logs', color: DIM_LABEL },
+                  { label: 'Outputs', sub: 'Diagnosis · action plan · approval', color: '#22c55e' },
+                ].map(row => (
+                  <div key={row.label} style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+                    <div style={{ width: 7, height: 7, borderRadius: '50%', background: row.color, marginTop: 5, flexShrink: 0 }} />
+                    <div>
+                      <div style={{ fontSize: '0.74rem', fontWeight: 600, color: '#e2e8f0' }}>{row.label}</div>
+                      <div style={{ fontSize: '0.67rem', color: '#475569', fontFamily: 'JetBrains Mono, monospace', marginTop: 1 }}>{row.sub}</div>
                     </div>
-                  );
-                })}
+                  </div>
+                ))}
               </div>
-              <div style={{ marginTop: 12, paddingTop: 10, borderTop: '1px solid #1e2d4a', fontSize: '0.65rem', color: '#475569', fontFamily: 'JetBrains Mono, monospace' }}>
-                Click any node to inspect its role and live output.
+              <div style={{ marginTop: 14, paddingTop: 10, borderTop: '1px solid #1e2d4a',
+                fontSize: '0.68rem', color: '#475569', fontFamily: 'JetBrains Mono, monospace' }}>
+                Click agent nodes to inspect. Drag other boxes to rearrange.
               </div>
             </>
           )}
@@ -491,7 +688,7 @@ export default function AgentFlowMap({ agentEvents = [] }) {
       <style>{`
         @keyframes flowPulse {
           0%, 100% { opacity: 1; }
-          50% { opacity: 0.35; }
+          50% { opacity: 0.3; }
         }
         @keyframes flowFadeIn {
           from { opacity: 0; transform: translateY(8px); }

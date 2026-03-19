@@ -155,6 +155,8 @@ body {
 .pipeline-view {
   flex: 1;
   display: flex;
+  width: 100%;
+  min-width: 0;
   overflow: hidden;
   min-height: 0;
 }
