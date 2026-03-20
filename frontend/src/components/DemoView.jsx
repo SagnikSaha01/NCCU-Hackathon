@@ -303,9 +303,10 @@ export default function DemoView() {
   const [completedAgents, setCompletedAgents]   = useState(0);
   const [usedFallback, setUsedFallback]         = useState(false);
 
-  const wsRef             = useRef(null);
-  const esRef             = useRef(null);
-  const mockTimeoutsRef   = useRef([]);
+  const wsRef                 = useRef(null);
+  const esRef                 = useRef(null);
+  const mockTimeoutsRef       = useRef([]);
+  const investigationDoneRef  = useRef(false); // prevents onerror fallback after clean completion
 
   // ── Clear any in-progress fallback timers ───────────────────────────────────
   const clearMockTimeouts = useCallback(() => {
@@ -389,6 +390,7 @@ export default function DemoView() {
     setSeverity(null);
     setCompletedAgents(0);
     setUsedFallback(false);
+    investigationDoneRef.current = false;
 
     // Use the real agent pipeline — same as Cleanroom floor Scenario A
     const es = new EventSource('/api/investigate/A');
@@ -414,11 +416,12 @@ export default function DemoView() {
             break;
 
           case 'AGENT_COMPLETE': {
-            // Use real data; fall back to mock only for null/missing fields
+            // Use real data; fall back to mock only for null/missing/empty fields
             const mock = getMockStep(event.agent);
             const summary = event.summary ?? mock?.complete.summary;
             const details = event.details ?? mock?.complete.details;
-            const trace   = event.trace   ?? mock?.complete.trace;
+            const hasRealTrace = event.trace && Object.values(event.trace).some(Boolean);
+            const trace = hasRealTrace ? event.trace : mock?.complete.trace;
 
             setAgentEvents(prev => [...prev, {
               type: 'AGENT_COMPLETE',
@@ -445,6 +448,7 @@ export default function DemoView() {
           }
 
           case 'INVESTIGATION_COMPLETE':
+            investigationDoneRef.current = true;  // block onerror fallback
             setDemoState(DEMO_STATES.COMPLETE);
             es.close();
             esRef.current = null;
@@ -469,8 +473,11 @@ export default function DemoView() {
     es.onerror = () => {
       es.close();
       esRef.current = null;
-      // Connection failed entirely — run full client-side mock
-      runMockFallback();
+      // Only run mock if investigation didn't already complete cleanly.
+      // (Browsers fire onerror when es.close() is called after INVESTIGATION_COMPLETE.)
+      if (!investigationDoneRef.current) {
+        runMockFallback();
+      }
     };
   }, [demoState, runMockFallback]);
 
@@ -522,10 +529,10 @@ export default function DemoView() {
               break;
 
             case 'CONTAMINATION_DETECTED':
-              // Arduino detected contamination — auto-start investigation
+              // Arduino detected contamination — use ref so handler is never stale
               setDemoState(prev => {
                 if (prev === DEMO_STATES.IDLE) {
-                  setTimeout(() => startInvestigation(), 0);
+                  setTimeout(() => startInvestigationRef.current(), 0);
                 }
                 return prev;
               });
@@ -565,28 +572,11 @@ export default function DemoView() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ── Keep WS handler in sync with latest startInvestigation ──────────────────
+  // ── Keep startInvestigation ref fresh so the WS handler never goes stale ─────
   const startInvestigationRef = useRef(startInvestigation);
   useEffect(() => {
     startInvestigationRef.current = startInvestigation;
   }, [startInvestigation]);
-
-  useEffect(() => {
-    if (!wsRef.current) return;
-    const originalOnMessage = wsRef.current.onmessage;
-    wsRef.current.onmessage = (e) => {
-      try {
-        const msg = JSON.parse(e.data);
-        if (msg.type === 'CONTAMINATION_DETECTED' && demoState === DEMO_STATES.IDLE) {
-          startInvestigationRef.current();
-        } else {
-          originalOnMessage?.(e);
-        }
-      } catch {
-        originalOnMessage?.(e);
-      }
-    };
-  }, [demoState]);
 
   // ── Derived ──────────────────────────────────────────────────────────────────
   const isInvestigating = demoState === DEMO_STATES.INVESTIGATING;
