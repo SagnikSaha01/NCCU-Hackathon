@@ -45,7 +45,9 @@ export default function App() {
   const [isComplete, setIsComplete] = useState(false);
   const [activeView, setActiveView] = useState('watchdog');
   const [activeTab, setActiveTab] = useState('feed');
+  const [aiTime, setAiTime] = useState(null);
   const esRef = useRef(null);
+  const startTimeRef = useRef(null);
 
   const triggerScenario = useCallback((key) => {
     if (esRef.current) {
@@ -59,8 +61,10 @@ export default function App() {
     setSeverity(null);
     setIsComplete(false);
     setIsInvestigating(true);
+    setAiTime(null);
     setReadings(BASELINE_READINGS);
-    setActiveTab('feed'); // Switch to feed when investigation starts
+    setActiveTab('feed');
+    startTimeRef.current = Date.now();
 
     const es = new EventSource(`/api/investigate/${key}`);
     esRef.current = es;
@@ -108,12 +112,17 @@ export default function App() {
             }
             break;
 
-          case 'INVESTIGATION_COMPLETE':
+          case 'INVESTIGATION_COMPLETE': {
+            const elapsedMs = Date.now() - (startTimeRef.current ?? Date.now());
+            const mins = Math.floor(elapsedMs / 60000);
+            const secs = Math.floor((elapsedMs % 60000) / 1000);
+            setAiTime(mins > 0 ? `${mins} min ${secs} sec` : `${secs} sec`);
             setIsComplete(true);
             setIsInvestigating(false);
             es.close();
             esRef.current = null;
             break;
+          }
 
           case 'ERROR':
             console.error('Investigation error:', event.message);
@@ -158,13 +167,12 @@ export default function App() {
         <div className="header-left">
           <div>
             <div className="header-title">
-              <span>Contamination</span>Hunter
+              <span>Swarm</span>Shield
             </div>
             <div className="header-subtitle">
-              Semiconductor Fab Contamination Detection System
+              Semiconductor Fab · IBM watsonx Orchestrate
             </div>
           </div>
-          <div className="header-badge">IBM watsonx Orchestrate</div>
         </div>
 
         {/* ── Top-level view switcher (centred in header) ── */}
@@ -303,6 +311,7 @@ export default function App() {
           <AgentFlowMap
             agentEvents={agentEvents}
             isInvestigating={isInvestigating}
+            aiTime={aiTime}
           />
         </div>
       )}
@@ -324,7 +333,7 @@ export default function App() {
       {/* ─── Timeline Footer ─── */}
       <Timeline
         isComplete={isComplete}
-        aiTime="2 min 17 sec"
+        aiTime={aiTime ?? '—'}
         manualTime="4-8 hours"
       />
     </div>

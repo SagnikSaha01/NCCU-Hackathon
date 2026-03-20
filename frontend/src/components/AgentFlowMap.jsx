@@ -1,5 +1,38 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 
+// ─── Knowledge data (mirrors agent_knowledge_data/ files) ─────────────────────
+const KB_ZONE_BASELINES = {"lithography-bay":{"avg_30d":0.062,"avg_90d":0.065,"spike_threshold":0.186},"etch-chamber":{"avg_30d":0.095,"avg_90d":0.092,"spike_threshold":0.285},"deposition":{"avg_30d":0.088,"avg_90d":0.089,"spike_threshold":0.264},"cmp":{"avg_30d":0.112,"avg_90d":0.115,"spike_threshold":0.336},"metrology":{"avg_30d":0.055,"avg_90d":0.054,"spike_threshold":0.165},"clean-station":{"avg_30d":0.058,"avg_90d":0.060,"spike_threshold":0.174},"hvac-unit-7":{"avg_30d":0.105,"avg_90d":0.098,"spike_threshold":0.315},"chemical-storage":{"avg_30d":0.072,"avg_90d":0.075,"spike_threshold":0.216}};
+
+const KB_CONTAMINATION_HISTORY = [
+  {event_id:"EVT-2024-001",date:"2024-05-12",source_zone:"hvac-unit-7",contamination_type:"HVAC_FILTER_FAILURE",max_reading:1.45,duration_hours:12,lot_value_lost_usd:450000,maintenance_days_overdue_at_time:45},
+  {event_id:"EVT-2024-002",date:"2024-06-18",source_zone:"cmp",contamination_type:"TOOL_SEAL_BREACH",max_reading:0.65,duration_hours:5,lot_value_lost_usd:185000,maintenance_days_overdue_at_time:18},
+  {event_id:"EVT-2024-006",date:"2024-12-20",source_zone:"deposition",contamination_type:"TOOL_SEAL_BREACH",max_reading:1.12,duration_hours:7,lot_value_lost_usd:540000,maintenance_days_overdue_at_time:22},
+  {event_id:"EVT-2025-01-14",date:"2025-01-14",source_zone:"hvac-unit-7",contamination_type:"HVAC_FILTER_FAILURE",max_reading:2.10,duration_hours:18,lot_value_lost_usd:2800000,maintenance_days_overdue_at_time:92},
+  {event_id:"EVT-2025-05-18",date:"2025-05-18",source_zone:"etch-chamber",contamination_type:"TOOL_SEAL_BREACH",max_reading:0.72,duration_hours:4,lot_value_lost_usd:155000,maintenance_days_overdue_at_time:0},
+  {event_id:"EVT-2025-011",date:"2025-07-12",source_zone:"metrology",contamination_type:"HVAC_FILTER_FAILURE",max_reading:0.55,duration_hours:9,lot_value_lost_usd:90000,maintenance_days_overdue_at_time:14},
+  {event_id:"EVT-2025-11-10",date:"2025-11-10",source_zone:"cmp",contamination_type:"TOOL_SEAL_BREACH",max_reading:0.25,duration_hours:0.5,lot_value_lost_usd:15000,maintenance_days_overdue_at_time:2},
+  {event_id:"EVT-2026-02-02",date:"2026-02-02",source_zone:"chemical-storage",contamination_type:"CHEMICAL_OUTGASSING",max_reading:0.15,duration_hours:0.1,lot_value_lost_usd:0,maintenance_days_overdue_at_time:0},
+  {event_id:"EVT-2026-03-10",date:"2026-03-10",source_zone:"lithography-bay",contamination_type:"TOOL_SEAL_BREACH",max_reading:0.18,duration_hours:0.2,lot_value_lost_usd:8000,maintenance_days_overdue_at_time:1},
+];
+
+const KB_MAINT_LATEST = [
+  {zone:"hvac-unit-7",date:"2025-11-18",technician:"J. Doe",work:"Filter Inspection",parts:"Pre-filter screen",notes:"Main HEPA filter approaching end of service life."},
+  {zone:"etch-chamber",date:"2026-01-08",technician:"K. Varma",work:"Full PM — Dry Etch Tool #3",parts:"Viton O-Rings (x4), Chamber Liner",notes:"62 days into 60-day cycle. Seal torque slightly below spec — retorqued."},
+  {zone:"lithography-bay",date:"2025-11-22",technician:"L. Torres",work:"Annual Exposure Unit A Full PM",parts:"Lens Purge Filter, Illumination Sensor",notes:"All values within OEM spec. Next PM due Q1 2026."},
+  {zone:"deposition",date:"2025-10-09",technician:"S. Kim",work:"Quarterly Inspection",parts:"None",notes:"No anomalies. 30 days into 90-day cycle."},
+  {zone:"cmp",date:"2025-09-03",technician:"D. Park",work:"Quarterly Inspection",parts:"None",notes:"55 days into 90-day cycle."},
+  {zone:"metrology",date:"2025-11-05",technician:"F. Rossi",work:"Annual Full PM",parts:"Electron Gun Filament, Stage Encoder",notes:"Stage encoder replaced after drift detected."},
+  {zone:"clean-station",date:"2025-10-01",technician:"C. Martinez",work:"Full Bench Inspection + Chemical Line Flush",parts:"None",notes:"All chemical delivery pressures nominal."},
+  {zone:"chemical-storage",date:"2025-09-18",technician:"E. Johnson",work:"Annual Chemical Storage Full PM",parts:"All Cabinet Door Gaskets (x6), Exhaust Damper",notes:"78 days into 90-day cycle."},
+];
+
+const KB_LOT_LOSS = [
+  {incident_id:"INC-8821",date:"2024-05-12",type:"HVAC_FILTER_FAILURE",wafers_scrapped:120,lot_value_lost_usd:450000,detection_time_hours:6.5,root_cause:"Manual inspection missed filter degradation."},
+  {incident_id:"INC-9012",date:"2025-01-14",type:"HVAC_FILTER_FAILURE",wafers_scrapped:850,lot_value_lost_usd:2800000,detection_time_hours:8.0,root_cause:"Night shift delay in manual log verification."},
+  {incident_id:"INC-9550",date:"2025-11-10",type:"TOOL_SEAL_BREACH",wafers_scrapped:2,lot_value_lost_usd:15000,detection_time_hours:0.033,root_cause:"AI System detected spike instantly. Automated interlock triggered."},
+  {incident_id:"INC-9610",date:"2026-02-02",type:"CHEMICAL_OUTGASSING",wafers_scrapped:0,lot_value_lost_usd:0,detection_time_hours:0.025,root_cause:"AI triggered isolation valves before particles reached processing bay."},
+];
+
 // ─── Agent definitions ────────────────────────────────────────────────────────
 const AGENTS = [
   {
@@ -153,20 +186,196 @@ function EdgePill({ x, y, text, color }) {
   );
 }
 
+// ─── Store modal content ──────────────────────────────────────────────────────
+const TYPE_COLOR = { HVAC_FILTER_FAILURE:'#0ea5e9', TOOL_SEAL_BREACH:'#f97316', CHEMICAL_OUTGASSING:'#a855f7' };
+const TYPE_SHORT = { HVAC_FILTER_FAILURE:'HVAC', TOOL_SEAL_BREACH:'SEAL', CHEMICAL_OUTGASSING:'CHEM' };
+
+function StoreModal({ store, onClose }) {
+  const TH = { fontSize:'0.6rem', color:'#475569', fontFamily:'JetBrains Mono,monospace',
+    fontWeight:600, padding:'3px 6px', textAlign:'left', borderBottom:'1px solid #1e2d4a' };
+  const TD = (extra={}) => ({ fontSize:'0.68rem', padding:'4px 6px', color:'#94a3b8', ...extra });
+
+  const header = (
+    <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:12 }}>
+      <span style={{ fontSize:'1.2rem' }}>{store.icon}</span>
+      <span style={{ fontSize:'0.85rem', fontWeight:700, color:'#a855f7',
+        fontFamily:'JetBrains Mono,monospace' }}>{store.label}</span>
+      <button onClick={onClose} style={{ marginLeft:'auto', background:'none', border:'none',
+        color:'#475569', cursor:'pointer', fontSize:'1.1rem' }}>×</button>
+    </div>
+  );
+
+  if (store.id === 'sensordb') return (
+    <div>
+      {header}
+      <div style={{ fontSize:'0.67rem', color:'#475569', fontFamily:'JetBrains Mono,monospace',
+        marginBottom:8 }}>30-day & 90-day particle baselines · spike detection thresholds per zone</div>
+      <table style={{ width:'100%', borderCollapse:'collapse' }}>
+        <thead><tr>
+          <th style={TH}>Zone</th>
+          <th style={{...TH,textAlign:'right'}}>30d avg</th>
+          <th style={{...TH,textAlign:'right'}}>90d avg</th>
+          <th style={{...TH,textAlign:'right'}}>Spike threshold</th>
+        </tr></thead>
+        <tbody>
+          {Object.entries(KB_ZONE_BASELINES).map(([zone, v]) => (
+            <tr key={zone} style={{ borderBottom:'1px solid #1e2d4a' }}>
+              <td style={{ ...TD(), color:'#0ea5e9', fontFamily:'JetBrains Mono,monospace', fontSize:'0.65rem' }}>{zone}</td>
+              <td style={TD({textAlign:'right'})}>{v.avg_30d}</td>
+              <td style={TD({textAlign:'right'})}>{v.avg_90d}</td>
+              <td style={TD({textAlign:'right', color:'#f97316'})}>{v.spike_threshold}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      <div style={{ marginTop:10, padding:'7px 10px', background:'rgba(14,165,233,0.06)',
+        border:'1px solid rgba(14,165,233,0.2)', borderRadius:6,
+        fontSize:'0.65rem', color:'#475569', fontFamily:'JetBrains Mono,monospace' }}>
+        Classification: NORMAL &lt;0.3 · ELEVATED 0.3–1.0 · CRITICAL &gt;1.0 p/m³
+      </div>
+    </div>
+  );
+
+  if (store.id === 'zonemap') return (
+    <div>
+      {header}
+      <div style={{ fontSize:'0.67rem', color:'#475569', fontFamily:'JetBrains Mono,monospace',
+        marginBottom:8 }}>30-day particle baselines · spike detection thresholds</div>
+      <table style={{ width:'100%', borderCollapse:'collapse' }}>
+        <thead><tr>
+          <th style={TH}>Zone</th>
+          <th style={{...TH,textAlign:'right'}}>30d avg</th>
+          <th style={{...TH,textAlign:'right'}}>90d avg</th>
+          <th style={{...TH,textAlign:'right'}}>Spike threshold</th>
+        </tr></thead>
+        <tbody>
+          {Object.entries(KB_ZONE_BASELINES).map(([zone, v]) => (
+            <tr key={zone} style={{ borderBottom:'1px solid #1e2d4a' }}>
+              <td style={{ ...TD(), color:'#0ea5e9', fontFamily:'JetBrains Mono,monospace', fontSize:'0.65rem' }}>{zone}</td>
+              <td style={TD({textAlign:'right'})}>{v.avg_30d}</td>
+              <td style={TD({textAlign:'right'})}>{v.avg_90d}</td>
+              <td style={TD({textAlign:'right', color:'#f97316'})}>{v.spike_threshold}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+
+  if (store.id === 'airflow') return (
+    <div>
+      {header}
+      <div style={{ fontSize:'0.72rem', color:'#94a3b8', lineHeight:1.6, marginBottom:10 }}>
+        Laminar unidirectional flow at <span style={{color:'#0ea5e9'}}>0.45 m/s</span> left→right. Contamination always travels from lower to higher column numbers.
+      </div>
+      <div style={{ fontFamily:'JetBrains Mono,monospace', fontSize:'0.65rem', lineHeight:2,
+        background:'rgba(255,255,255,0.03)', border:'1px solid #1e2d4a', borderRadius:6, padding:'10px 12px' }}>
+        {[
+          ['litho-bay','etch-chamber','deposition','cmp'],
+          ['metrology','clean-station','hvac-unit-7','chem-storage'],
+        ].map((row, ri) => (
+          <div key={ri} style={{ display:'flex', gap:4, alignItems:'center', marginBottom: ri===0?4:0 }}>
+            {row.map((z, ci) => (
+              <span key={z} style={{ flex:1, textAlign:'center', padding:'3px 0',
+                background:'rgba(14,165,233,0.08)', border:'1px solid rgba(14,165,233,0.2)',
+                borderRadius:4, color:'#0ea5e9', fontSize:'0.58rem' }}>{z}</span>
+            ))}
+            <span style={{ color:'#475569', fontSize:'0.7rem', marginLeft:4 }}>→</span>
+          </div>
+        ))}
+      </div>
+      <div style={{ marginTop:8, fontSize:'0.65rem', color:'#475569', fontFamily:'JetBrains Mono,monospace' }}>
+        ISO Class 5 · col 0 (upstream) → col 3 (downstream)
+      </div>
+    </div>
+  );
+
+  if (store.id === 'patterns') return (
+    <div>
+      {header}
+      <div style={{ fontSize:'0.67rem', color:'#475569', fontFamily:'JetBrains Mono,monospace',
+        marginBottom:8 }}>{KB_CONTAMINATION_HISTORY.length} historical events · 3 contamination types</div>
+      <div style={{ display:'flex', gap:6, marginBottom:10 }}>
+        {Object.entries(TYPE_COLOR).map(([t,c]) => (
+          <span key={t} style={{ fontSize:'0.58rem', padding:'2px 7px', borderRadius:4,
+            border:`1px solid ${c}44`, color:c, background:`${c}11`,
+            fontFamily:'JetBrains Mono,monospace', fontWeight:700 }}>{TYPE_SHORT[t]}</span>
+        ))}
+      </div>
+      <table style={{ width:'100%', borderCollapse:'collapse' }}>
+        <thead><tr>
+          <th style={TH}>Event</th>
+          <th style={TH}>Source</th>
+          <th style={{...TH,textAlign:'right'}}>Max p/m³</th>
+          <th style={{...TH,textAlign:'right'}}>Loss $</th>
+        </tr></thead>
+        <tbody>
+          {KB_CONTAMINATION_HISTORY.map(e => (
+            <tr key={e.event_id} style={{ borderBottom:'1px solid #1e2d4a' }}>
+              <td style={{ ...TD(), fontFamily:'JetBrains Mono,monospace', fontSize:'0.6rem' }}>
+                <div>{e.event_id.slice(-10)}</div>
+                <div style={{ color:'#475569', fontSize:'0.58rem' }}>{e.date}</div>
+              </td>
+              <td style={{ ...TD(), color: TYPE_COLOR[e.contamination_type] ?? '#94a3b8', fontSize:'0.62rem' }}>
+                <div>{e.source_zone}</div>
+                <div style={{ color:'#475569', fontSize:'0.58rem' }}>{TYPE_SHORT[e.contamination_type]}</div>
+              </td>
+              <td style={TD({textAlign:'right', color: e.max_reading > 1 ? '#ef4444' : '#eab308'})}>{e.max_reading}</td>
+              <td style={TD({textAlign:'right', fontSize:'0.62rem'})}>
+                {e.lot_value_lost_usd === 0 ? <span style={{color:'#22c55e'}}>$0</span>
+                  : `$${(e.lot_value_lost_usd/1000).toFixed(0)}K`}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+
+  if (store.id === 'maintlogs') return (
+    <div>
+      {header}
+      <div style={{ fontSize:'0.67rem', color:'#475569', fontFamily:'JetBrains Mono,monospace',
+        marginBottom:8 }}>Most recent service record per zone</div>
+      {KB_MAINT_LATEST.map(m => (
+        <div key={m.zone} style={{ marginBottom:8, padding:'8px 10px',
+          background:'rgba(255,255,255,0.02)', border:'1px solid #1e2d4a', borderRadius:6 }}>
+          <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:4 }}>
+            <span style={{ fontSize:'0.68rem', fontWeight:700, color:'#0ea5e9',
+              fontFamily:'JetBrains Mono,monospace' }}>{m.zone}</span>
+            <span style={{ fontSize:'0.58rem', color:'#475569',
+              fontFamily:'JetBrains Mono,monospace', marginLeft:'auto' }}>{m.date} · {m.technician}</span>
+          </div>
+          <div style={{ fontSize:'0.68rem', color:'#e2e8f0', marginBottom:3 }}>{m.work}</div>
+          {m.parts !== 'None' && (
+            <div style={{ fontSize:'0.62rem', color:'#f97316',
+              fontFamily:'JetBrains Mono,monospace' }}>Parts: {m.parts}</div>
+          )}
+          <div style={{ fontSize:'0.62rem', color:'#475569', marginTop:2, fontStyle:'italic' }}>{m.notes}</div>
+        </div>
+      ))}
+    </div>
+  );
+
+  return <div>{header}<p style={{color:'#475569',fontSize:'0.75rem'}}>No data available.</p></div>;
+}
+
 // ─── Main component ───────────────────────────────────────────────────────────
-export default function AgentFlowMap({ agentEvents = [] }) {
+export default function AgentFlowMap({ agentEvents = [], aiTime = null }) {
   const containerRef = useRef(null);
   const svgRef       = useRef(null);
   const pathRefs     = useRef({});
 
   const [dim, setDim]             = useState({ w: 1100, h: 600 });
   const [selectedAgent, setSelectedAgent] = useState(null);
+  const [selectedStore, setSelectedStore] = useState(null);
   const [panelOpen, setPanelOpen] = useState(false);
 
   // ── Draggable node positions (centre x,y) ────────────────────────────────
   // Keyed by node id. Initialised lazily after first layout measurement.
   const [positions, setPositions] = useState(null);
   const dragging = useRef(null); // { id, startMouseX, startMouseY, startNodeX, startNodeY }
+  const dragMoved = useRef(false); // track whether mouse moved during drag
 
   // ── Measure container ────────────────────────────────────────────────────
   useEffect(() => {
@@ -244,10 +453,11 @@ export default function AgentFlowMap({ agentEvents = [] }) {
       sse:        { x: inpX0 + safeInpStep,      y: TOP_Y },
       readings:   { x: inpX0 + safeInpStep * 2,  y: TOP_Y },
       // ── DATA STORES — two alternating rows so boxes never overlap ────
-      zonemap:    { x: agentCX(1) - BX_W / 2,   y: BOT_A },
-      airflow:    { x: agentCX(2) - BX_W / 2,   y: BOT_B },
-      patterns:   { x: agentCX(3) - BX_W / 2,   y: BOT_A },
-      maintlogs:  { x: agentCX(4) - BX_W / 2,   y: BOT_B },
+      sensordb:   { x: agentCX(0) - BX_W / 2,   y: BOT_A },
+      zonemap:    { x: agentCX(1) - BX_W / 2,   y: BOT_B },
+      airflow:    { x: agentCX(2) - BX_W / 2,   y: BOT_A },
+      patterns:   { x: agentCX(3) - BX_W / 2,   y: BOT_B },
+      maintlogs:  { x: agentCX(4) - BX_W / 2,   y: BOT_A },
       // ── OUTPUTS — spread horizontally below agents 4/5/6 ─────────────
       diagnosis:  { x: outMidX - outSpan, y: outY },
       actionplan: { x: outMidX,           y: outY },
@@ -264,6 +474,7 @@ export default function AgentFlowMap({ agentEvents = [] }) {
   // ── Drag handlers ────────────────────────────────────────────────────────
   const handleMouseDown = useCallback((id, e) => {
     e.stopPropagation();
+    dragMoved.current = false;
     const svgRect = svgRef.current.getBoundingClientRect();
     dragging.current = {
       id,
@@ -281,6 +492,7 @@ export default function AgentFlowMap({ agentEvents = [] }) {
     const my = e.clientY - svgRect.top;
     const dx = mx - dragging.current.startMouseX;
     const dy = my - dragging.current.startMouseY;
+    if (Math.abs(dx) > 4 || Math.abs(dy) > 4) dragMoved.current = true;
     setPositions(prev => ({
       ...prev,
       [dragging.current.id]: {
@@ -381,7 +593,6 @@ export default function AgentFlowMap({ agentEvents = [] }) {
         {/* ══ SECTION LABELS ══════════════════════════════════════════════════ */}
         {[
           { t: '▸ INPUT PIPELINE',  x: PAD_L,           y: positions.trigger.y - 10 },
-          { t: '▸ DATA STORES',     x: PAD_L,           y: positions.zonemap.y - 10 },
           { t: '▸ OUTPUTS',         x: positions.diagnosis.x, y: positions.diagnosis.y - 12 },
         ].map(l => (
           <text key={l.t} x={l.x} y={l.y} fontSize={10} fontWeight={700} fill={DIM_SUB}
@@ -404,6 +615,7 @@ export default function AgentFlowMap({ agentEvents = [] }) {
 
         {/* ══ STORE → AGENT CONNECTORS ════════════════════════════════════════ */}
         {[
+          { id: 'sensordb',  agentIdx: 0 },   // SensorCoordinator reads zone baselines
           { id: 'zonemap',   agentIdx: 1 },   // PhysicsAgent reads zone map
           { id: 'airflow',   agentIdx: 1 },   // PhysicsAgent reads airflow model
           { id: 'patterns',  agentIdx: 2 },   // PatternAgent reads historical patterns
@@ -476,8 +688,9 @@ export default function AgentFlowMap({ agentEvents = [] }) {
           );
         })}
 
-        {/* ══ DATA STORE NODES (draggable) ════════════════════════════════════ */}
+        {/* ══ DATA STORE NODES (draggable + clickable) ════════════════════════ */}
         {[
+          { id: 'sensordb',  icon: '📊',  label: 'Sensor Baselines', sub: '8 zones · thresholds' },
           { id: 'zonemap',   icon: '🗺',  label: 'Zone Map',        sub: '8 zones · row/col grid' },
           { id: 'airflow',   icon: '💨',  label: 'Airflow Model',   sub: '0.45 m/s · left → right' },
           { id: 'patterns',  icon: '📜',  label: 'Hist. Patterns',  sub: '9 events · 3 types' },
@@ -485,16 +698,25 @@ export default function AgentFlowMap({ agentEvents = [] }) {
         ].map(s => {
           const pos = positions[s.id];
           const isBeingDragged = dragging.current?.id === s.id;
+          const isSelected = selectedStore?.id === s.id;
           return (
-            <g key={s.id} style={{ cursor: 'grab' }}
-              onMouseDown={(e) => handleMouseDown(s.id, e)}>
+            <g key={s.id} style={{ cursor: 'pointer' }}
+              onMouseDown={(e) => handleMouseDown(s.id, e)}
+              onMouseUp={() => {
+                if (!dragMoved.current) {
+                  setSelectedAgent(null);
+                  setSelectedStore(isSelected ? null : s);
+                  setPanelOpen(true);
+                }
+              }}>
               {/* Cylinder cap */}
               <ellipse cx={pos.x + BX_W/2} cy={pos.y}
                 rx={BX_W/2} ry={6}
-                fill="rgba(30,45,74,0.7)" stroke={DIM_BORDER} strokeWidth={1} />
+                fill={isSelected ? 'rgba(168,85,247,0.25)' : 'rgba(30,45,74,0.7)'}
+                stroke={isSelected ? '#a855f7' : DIM_BORDER} strokeWidth={1} />
               <LandscapeNode x={pos.x} y={pos.y}
                 icon={s.icon} label={s.label} sub={s.sub}
-                clipId={`clip-${s.id}`} dragging={isBeingDragged} />
+                clipId={`clip-${s.id}`} dragging={isBeingDragged || isSelected} />
             </g>
           );
         })}
@@ -511,7 +733,7 @@ export default function AgentFlowMap({ agentEvents = [] }) {
 
           return (
             <g key={agent.id}
-              onClick={() => { setSelectedAgent(isSelected ? null : agent); setPanelOpen(true); }}
+              onClick={() => { setSelectedStore(null); setSelectedAgent(isSelected ? null : agent); setPanelOpen(true); }}
               style={{ cursor: 'pointer' }}>
               {status !== 'idle' && (
                 <rect x={nx-5} y={ny-5} width={NW+10} height={NH+10} rx={12}
@@ -529,9 +751,9 @@ export default function AgentFlowMap({ agentEvents = [] }) {
                 style={{
                   filter: status !== 'idle' ? `drop-shadow(0 0 5px ${status === 'complete' ? '#22c55e' : agent.color})` : 'none',
                   animation: status === 'active' ? 'flowPulse 1s ease-in-out infinite' : 'none' }} />
-              <text x={nx+15} y={cy} fontSize={16} textAnchor="middle"
+              <text x={nx+22} y={cy} fontSize={16} textAnchor="middle"
                 dominantBaseline="middle" style={{ userSelect: 'none' }}>{agent.icon}</text>
-              <text x={nx+28} y={cy} fontSize={11} fontWeight={700}
+              <text x={nx+36} y={cy} fontSize={11} fontWeight={700}
                 fill={status !== 'idle' ? agent.color : '#94a3b8'}
                 fontFamily="Inter, sans-serif" dominantBaseline="middle"
                 style={{ transition: 'fill 0.3s', userSelect: 'none' }}>{agent.label}</text>
@@ -624,7 +846,7 @@ export default function AgentFlowMap({ agentEvents = [] }) {
                 fill="rgba(34,197,94,0.09)" stroke="rgba(34,197,94,0.4)" strokeWidth={1} />
               <text x={bx+bw/2} y={by+16} textAnchor="middle"
                 fontSize={13} fill="#22c55e" fontFamily="JetBrains Mono, monospace" fontWeight={700}>
-                ✓ ~2 min 17 sec
+                ✓ {aiTime ?? '—'}
               </text>
               <text x={bx+bw/2} y={by+32} textAnchor="middle"
                 fontSize={9.5} fill={DIM_SUB} fontFamily="JetBrains Mono, monospace">
@@ -656,12 +878,14 @@ export default function AgentFlowMap({ agentEvents = [] }) {
       {panelOpen && (
         <div style={{
           position: 'absolute', bottom: 60, right: 20,
-          width: 310, maxHeight: '65vh', overflowY: 'auto',
+          width: 360, maxHeight: '68vh', overflowY: 'auto',
           background: '#0f1629', border: '1px solid #1e2d4a', borderRadius: 10,
           padding: 18, zIndex: 20, boxShadow: '0 12px 40px rgba(0,0,0,0.65)',
           animation: 'flowFadeIn 0.2s ease forwards',
         }}>
-          {selectedAgent ? (
+          {selectedStore ? (
+            <StoreModal store={selectedStore} onClose={() => setSelectedStore(null)} />
+          ) : selectedAgent ? (
             <>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
                 <span style={{ fontSize: '1.3rem' }}>{selectedAgent.icon}</span>

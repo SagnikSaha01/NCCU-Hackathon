@@ -367,6 +367,9 @@ export default function WatchdogView() {
       display: 'flex',
       flexDirection: 'column',
       height: '100%',
+      flex: 1,
+      width: 0,
+      minWidth: 0,
       background: 'var(--bg-dark, #0a0e1a)',
       overflow: 'hidden',
     }}>
@@ -401,7 +404,7 @@ export default function WatchdogView() {
             Watchdog — Predictive Risk Monitor
           </div>
           <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontFamily: 'JetBrains Mono, monospace' }}>
-            IBM watsonx Orchestrate · Maintenance & Sensor Analysis
+            30s polling · maintenance schedules + sensor drift
           </div>
         </div>
 

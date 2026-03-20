@@ -34,14 +34,14 @@ body {
 
 /* ─── Header ─── */
 .header {
-  padding: 12px 24px;
+  padding: 10px 20px;
   background: var(--bg-panel);
   border-bottom: 1px solid var(--border);
-  display: flex;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
   align-items: center;
-  justify-content: space-between;
+  gap: 12px;
   flex-shrink: 0;
-  position: relative;
 }
 
 .header-left {
@@ -81,6 +81,7 @@ body {
   display: flex;
   align-items: center;
   gap: 10px;
+  justify-self: end;
 }
 
 .header-status {
@@ -108,9 +109,7 @@ body {
   border: 1px solid var(--border);
   border-radius: 8px;
   padding: 3px;
-  position: absolute;
-  left: 50%;
-  transform: translateX(-50%);
+  justify-self: center;
 }
 
 .main-view-btn {
