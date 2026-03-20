@@ -18,12 +18,143 @@ const BASELINE_READINGS = {
   'chemical-storage': { particles: 0.06, trend: 'stable', particleSize: '0.3µm' },
 };
 
+const MOCK_READINGS = {
+  'lithography-bay':  { particles: 0.07, trend: 'stable', particleSize: '0.3µm' },
+  'etch-chamber':     { particles: 0.09, trend: 'stable', particleSize: '0.3µm' },
+  'deposition':       { particles: 0.08, trend: 'stable', particleSize: '0.3µm' },
+  'cmp':              { particles: 0.06, trend: 'stable', particleSize: '0.3µm' },
+  'metrology':        { particles: 0.08, trend: 'stable', particleSize: '0.3µm' },
+  'clean-station':    { particles: 0.09, trend: 'stable', particleSize: '0.3µm' },
+  'hvac-unit-7':      { particles: 2.85, trend: 'rising', particleSize: '0.3µm' },
+  'chemical-storage': { particles: 1.92, trend: 'rising', particleSize: '0.3µm' },
+};
+
+// ── Client-side fallback mock steps (mirrors server DEMO_MOCK_STEPS + traces) ─
+// Used when the SSE endpoint fails — guarantees the demo never gets stuck.
+const CLIENT_MOCK_STEPS = [
+  {
+    delay: 2000,
+    start:    { agent: 'SensorCoordinator', message: 'Aggregating all 8 zone sensor readings...' },
+    complete: {
+      agent:   'SensorCoordinator',
+      summary: 'Detected 2 critical zones: hvac-unit-7 (2.85 p/m³), chemical-storage (1.92 p/m³). 6 zones nominal.',
+      details: { criticalZones: ['hvac-unit-7'], elevatedZones: ['chemical-storage'], totalAffected: 2, dominantSize: '0.3µm' },
+      trace: {
+        thought:     'I need to aggregate particle count readings from all 8 cleanroom zones and flag any that exceed the ISO Class 5 threshold of 0.5 p/m³.',
+        action:      'Query sensor database for all zone readings. Compare against ISO Class 5 baseline. Flag zones exceeding threshold.',
+        observation: 'hvac-unit-7: 2.85 p/m³ (CRITICAL, 5.7× baseline). chemical-storage: 1.92 p/m³ (ELEVATED, 3.8× baseline). Remaining 6 zones within normal range.',
+        answer:      '2 anomalous zones detected. hvac-unit-7 and chemical-storage both exceed ISO Class 5 limits. Forwarding to physics analysis.',
+      },
+    },
+  },
+  {
+    delay: 3000,
+    start:    { agent: 'PhysicsAgent', message: 'Tracing contamination upstream against laminar airflow (0.45 m/s)...' },
+    complete: {
+      agent:   'PhysicsAgent',
+      summary: 'Traced source upstream to hvac-unit-7 (Col 2, Row 1). Spread: unidirectional-right via laminar flow.',
+      details: { upstreamSource: 'hvac-unit-7', spreadPattern: 'unidirectional-right', candidateZones: ['hvac-unit-7', 'chemical-storage'] },
+      trace: {
+        thought:     'With contamination at hvac-unit-7 and chemical-storage, I need to trace the upstream source using laminar airflow physics. Airflow is unidirectional at 0.45 m/s left-to-right.',
+        action:      'Apply reverse laminar flow vector model. Map particle dispersion upstream from critical zones. Identify origin using concentration gradient and zone positions.',
+        observation: 'Highest concentration at hvac-unit-7 (Col 2, Row 1) with gradient decreasing downstream. chemical-storage is a direct downstream neighbor. Single-source pattern confirmed.',
+        answer:      'Source traced to hvac-unit-7. Contamination spreading unidirectionally right via laminar flow at 0.45 m/s. Candidate zones: [hvac-unit-7, chemical-storage].',
+      },
+    },
+  },
+  {
+    delay: 3000,
+    start:    { agent: 'PatternAgent', message: 'Matching contamination signature to historical event database...' },
+    complete: {
+      agent:   'PatternAgent',
+      summary: 'Matched HVAC_FILTER_FAILURE with 94% confidence. Gradual ramp-up signature, 0.3µm particles. 3 historical precedents.',
+      details: { matchedType: 'HVAC_FILTER_FAILURE', patternConfidence: 94, spikeShape: 'gradual-ramp' },
+      trace: {
+        thought:     'I need to match the contamination signature — 0.3µm particles, gradual ramp-up at hvac-unit-7 — against the historical contamination event database to identify the failure mode.',
+        action:      'Search historical database for events matching: particle size 0.3µm, source zone hvac-unit-7, gradual concentration increase. Compute confidence scores for top pattern matches.',
+        observation: 'Found 3 historical precedents for HVAC_FILTER_FAILURE. Gradual ramp-up over 6-hour window, 0.3µm dominant size, HVAC zone origin. Pattern confidence: 94%.',
+        answer:      'HVAC_FILTER_FAILURE matched with 94% confidence. Gradual ramp-up in 0.3µm range with 3 historical precedents confirms filter degradation as the root cause.',
+      },
+    },
+  },
+  {
+    delay: 3000,
+    start:    { agent: 'CorrelationAgent', message: 'Checking equipment maintenance logs for candidate zones...' },
+    complete: {
+      agent:   'CorrelationAgent',
+      summary: 'HVAC Unit #7 filter overdue by 4 days (last serviced 94 days ago, interval 90 days). Primary candidate confirmed.',
+      details: { primaryCandidate: 'hvac-unit-7', overdueCount: 1, maintenanceFingerprint: 'HVAC filter — 4 days overdue' },
+      trace: {
+        thought:     'I need to cross-reference candidate zones [hvac-unit-7, chemical-storage] against maintenance logs to find equipment overdue for servicing that correlates with the contamination event.',
+        action:      'Pull maintenance records for hvac-unit-7 and chemical-storage. Check last service dates, scheduled intervals, and overdue status.',
+        observation: 'hvac-unit-7 HVAC filter: last serviced 94 days ago, recommended interval 90 days. Overdue by 4 days. chemical-storage: all maintenance items current, no overdue found.',
+        answer:      'HVAC Unit #7 filter is 4 days overdue for replacement. This directly correlates with the contamination source from physics analysis. Primary candidate confirmed: hvac-unit-7.',
+      },
+    },
+  },
+  {
+    delay: 3000,
+    start:    { agent: 'VerificationAgent', message: 'Cross-validating spread pattern consistency with proposed source...' },
+    complete: {
+      agent:   'VerificationAgent',
+      summary: 'Consistency score: 96%. Downstream zone (chemical-storage) elevated as expected. Hypothesis CONFIRMED.',
+      details: { proposedSource: 'hvac-unit-7', consistencyScore: 96, isConsistent: true },
+      trace: {
+        thought:     'I need to verify that hvac-unit-7 as the source is consistent with the observed spread pattern under current airflow conditions by running a forward simulation.',
+        action:      'Simulate contamination spread from hvac-unit-7 using laminar flow model. Compare predicted downstream zones against actual observed elevated readings.',
+        observation: 'Simulation predicts: hvac-unit-7 (critical), chemical-storage (elevated), remaining 6 zones unaffected. Actual observations match prediction exactly. Consistency score: 96%.',
+        answer:      'Hypothesis CONFIRMED with 96% consistency. Observed spread pattern perfectly matches the simulated output from an hvac-unit-7 source. Downstream chemical-storage elevation validates the model.',
+      },
+    },
+  },
+  {
+    delay: 3000,
+    start:    { agent: 'SeverityAgent', message: 'Calculating risk score and lot value at risk...' },
+    complete: {
+      agent:   'SeverityAgent',
+      summary: 'Severity: CRITICAL. Risk score: 87/100. Lot value at risk: ~$2.4M. ISO Class 5 violation confirmed.',
+      details: { severity: 'CRITICAL', riskScore: 87, lotValueAtRisk: '~$2.4M', isoClassViolation: 'YES — 2.85 p/m³ exceeds 0.5 p/m³ threshold' },
+      trace: {
+        thought:     'I need to assess severity by calculating the risk score, estimating lot value at risk from current wafer processing state, and checking ISO Class 5 compliance status.',
+        action:      'Calculate risk score from: contamination level (2.85 vs 0.5 p/m³ threshold), source confidence (94%), affected zones (2), active production lots. Cross-check ISO 14644-1 Class 5 limits.',
+        observation: 'Risk score: 87/100. Contamination 5.7× ISO limit. 3 active wafer lots in affected zones, estimated value ~$2.4M. ISO Class 5 violation confirmed: 2.85 p/m³ exceeds 0.5 p/m³.',
+        answer:      'Severity: CRITICAL. Risk score 87/100. Immediate action required to prevent further lot loss. ISO Class 5 violation is active. Total lot value at risk: ~$2.4M.',
+      },
+    },
+  },
+  {
+    delay: 3000,
+    start:    { agent: 'ResponseAgent', message: 'Generating prioritized remediation plan for engineer approval...' },
+    complete: {
+      agent:   'ResponseAgent',
+      summary: '6 immediate actions generated. Source: HVAC Unit #7. Recommend immediate shutdown of HVAC unit. AWAITING ENGINEER APPROVAL.',
+      details: {
+        diagnosis: {
+          source:           'hvac-unit-7',
+          type:             'HVAC_FILTER_FAILURE',
+          confidence:       94,
+          maintenanceLink:  'HVAC filter overdue by 4 days — last serviced 94 days ago',
+        },
+        recommendedActions: [
+          { priority: 1, action: 'Immediately shut down HVAC Unit #7 to halt contamination spread',                        urgency: 'IMMEDIATE', owner: 'Facilities Engineer',  estTime: '5 min'  },
+          { priority: 2, action: 'Isolate affected zones (hvac-unit-7, chemical-storage) and halt wafer processing',       urgency: 'IMMEDIATE', owner: 'Fab Operator',          estTime: '10 min' },
+          { priority: 3, action: 'Inspect and replace HVAC Unit #7 filter (94-day accumulation)',                         urgency: 'URGENT',    owner: 'Maintenance Tech',       estTime: '45 min' },
+          { priority: 4, action: 'Deploy portable HEPA scrubbers in affected zones during HVAC downtime',                 urgency: 'URGENT',    owner: 'Facilities Engineer',  estTime: '30 min' },
+          { priority: 5, action: 'Perform full particle count sweep of all 8 zones post-filter replacement',              urgency: 'URGENT',    owner: 'Metrology Team',         estTime: '60 min' },
+          { priority: 6, action: 'Update HVAC maintenance schedule — reduce interval from 90 to 60 days',                 urgency: 'ROUTINE',   owner: 'Maintenance Manager',    estTime: '15 min' },
+        ],
+      },
+      trace: {
+        thought:     'With CRITICAL severity confirmed and hvac-unit-7 identified as the source, I need to generate a prioritized remediation plan covering immediate containment, root cause repair, and preventive follow-up.',
+        action:      'Generate tiered action plan: immediate shutdown/isolation steps, urgent repair/cleaning steps, routine policy updates. Assign owners, estimate completion times, and set urgency levels.',
+        observation: '6 actions generated. Actions 1-2 are immediate (stop contamination spread, <15 min). Actions 3-5 are urgent (root cause fix + verification, ~2.25 hrs). Action 6 is routine (policy update, 15 min).',
+        answer:      'Remediation plan ready with 6 prioritized actions. Estimated full resolution: ~2.75 hours. Immediate actions 1-2 must be executed now to halt active ISO Class 5 violation. AWAITING ENGINEER APPROVAL.',
+      },
+    },
+  },
+];
+
 // ── Demo states ───────────────────────────────────────────────────────────────
-// IDLE          → waiting for contamination signal
-// INVESTIGATING → mock agent pipeline running
-// COMPLETE      → investigation done, "Solve Problem" button shown
-// SOLVING       → waiting for Arduino to confirm fan stopped
-// SOLVED        → fan confirmed stopped, success state
 const DEMO_STATES = {
   IDLE:          'IDLE',
   INVESTIGATING: 'INVESTIGATING',
@@ -163,16 +294,24 @@ function SolvedBanner() {
 
 // ── Main DemoView ─────────────────────────────────────────────────────────────
 export default function DemoView() {
-  const [demoState, setDemoState]           = useState(DEMO_STATES.IDLE);
+  const [demoState, setDemoState]               = useState(DEMO_STATES.IDLE);
   const [arduinoConnected, setArduinoConnected] = useState(false);
-  const [agentEvents, setAgentEvents]       = useState([]);
-  const [readings, setReadings]             = useState(BASELINE_READINGS);
-  const [diagnosis, setDiagnosis]           = useState(null);
-  const [severity, setSeverity]             = useState(null);
-  const [completedAgents, setCompletedAgents] = useState(0);
+  const [agentEvents, setAgentEvents]           = useState([]);
+  const [readings, setReadings]                 = useState(BASELINE_READINGS);
+  const [diagnosis, setDiagnosis]               = useState(null);
+  const [severity, setSeverity]                 = useState(null);
+  const [completedAgents, setCompletedAgents]   = useState(0);
+  const [usedFallback, setUsedFallback]         = useState(false);
 
-  const wsRef  = useRef(null);
-  const esRef  = useRef(null);
+  const wsRef             = useRef(null);
+  const esRef             = useRef(null);
+  const mockTimeoutsRef   = useRef([]);
+
+  // ── Clear any in-progress fallback timers ───────────────────────────────────
+  const clearMockTimeouts = useCallback(() => {
+    mockTimeoutsRef.current.forEach(clearTimeout);
+    mockTimeoutsRef.current = [];
+  }, []);
 
   // ── Send command to Arduino via WebSocket ───────────────────────────────────
   const sendArduinoCommand = useCallback((command) => {
@@ -181,7 +320,66 @@ export default function DemoView() {
     }
   }, []);
 
-  // ── Start mock investigation via SSE ────────────────────────────────────────
+  // ── Client-side mock fallback (runs when SSE fails) ──────────────────────────
+  const runMockFallback = useCallback(() => {
+    setUsedFallback(true);
+    setReadings(MOCK_READINGS);
+
+    let accDelay = 200;
+
+    for (const step of CLIENT_MOCK_STEPS) {
+      const startAt    = accDelay;
+      const completeAt = accDelay + step.delay;
+
+      const tStart = setTimeout(() => {
+        setAgentEvents(prev => [...prev, {
+          type:      'AGENT_START',
+          agent:     step.start.agent,
+          message:   step.start.message,
+          timestamp: new Date().toISOString(),
+        }]);
+      }, startAt);
+
+      const tComplete = setTimeout(() => {
+        const timestamp = new Date().toISOString();
+        setAgentEvents(prev => [...prev, {
+          type:      'AGENT_COMPLETE',
+          agent:     step.complete.agent,
+          summary:   step.complete.summary,
+          details:   step.complete.details,
+          trace:     step.complete.trace,
+          timestamp,
+        }]);
+        setCompletedAgents(n => n + 1);
+
+        if (step.complete.agent === 'SeverityAgent' && step.complete.details?.severity) {
+          setSeverity(step.complete.details.severity);
+        }
+        if (step.complete.agent === 'ResponseAgent' && step.complete.details) {
+          setDiagnosis({
+            ...step.complete.details.diagnosis,
+            recommendedActions: step.complete.details.recommendedActions,
+            lotValueAtRisk:     step.complete.details.diagnosis?.lotValueAtRisk ?? '~$2.4M',
+            isoClassViolation:  'YES — 2.85 p/m³ exceeds 0.5 p/m³ ISO Class 5 threshold',
+          });
+        }
+      }, completeAt);
+
+      mockTimeoutsRef.current.push(tStart, tComplete);
+      accDelay = completeAt + 800;
+    }
+
+    const tDone = setTimeout(() => {
+      setDemoState(DEMO_STATES.COMPLETE);
+    }, accDelay + 300);
+    mockTimeoutsRef.current.push(tDone);
+  }, []);
+
+  // ── Look up the pre-scripted fallback data for a given agent ────────────────
+  const getMockStep = (agentName) =>
+    CLIENT_MOCK_STEPS.find(s => s.complete.agent === agentName);
+
+  // ── Start real agent investigation (Scenario A), with null-field fallback ───
   const startInvestigation = useCallback(() => {
     if (demoState !== DEMO_STATES.IDLE) return;
 
@@ -190,13 +388,15 @@ export default function DemoView() {
     setDiagnosis(null);
     setSeverity(null);
     setCompletedAgents(0);
+    setUsedFallback(false);
 
-    const es = new EventSource('/api/demo/investigate');
+    // Use the real agent pipeline — same as Cleanroom floor Scenario A
+    const es = new EventSource('/api/investigate/A');
     esRef.current = es;
 
     es.onmessage = (e) => {
       try {
-        const event = JSON.parse(e.data);
+        const event     = JSON.parse(e.data);
         const timestamp = new Date().toISOString();
 
         switch (event.type) {
@@ -206,35 +406,43 @@ export default function DemoView() {
 
           case 'AGENT_START':
             setAgentEvents(prev => [...prev, {
-              type: 'AGENT_START',
-              agent: event.agent,
-              message: event.message,
+              type:      'AGENT_START',
+              agent:     event.agent,
+              message:   event.message,
               timestamp,
             }]);
             break;
 
-          case 'AGENT_COMPLETE':
+          case 'AGENT_COMPLETE': {
+            // Use real data; fall back to mock only for null/missing fields
+            const mock = getMockStep(event.agent);
+            const summary = event.summary ?? mock?.complete.summary;
+            const details = event.details ?? mock?.complete.details;
+            const trace   = event.trace   ?? mock?.complete.trace;
+
             setAgentEvents(prev => [...prev, {
               type: 'AGENT_COMPLETE',
               agent: event.agent,
-              summary: event.summary,
-              details: event.details,
+              summary,
+              details,
+              trace,
               timestamp,
             }]);
             setCompletedAgents(n => n + 1);
 
-            if (event.agent === 'SeverityAgent' && event.details?.severity) {
-              setSeverity(event.details.severity);
+            if (event.agent === 'SeverityAgent' && details?.severity) {
+              setSeverity(details.severity);
             }
-            if (event.agent === 'ResponseAgent' && event.details) {
+            if (event.agent === 'ResponseAgent' && details) {
               setDiagnosis({
-                ...event.details.diagnosis,
-                recommendedActions: event.details.recommendedActions,
-                lotValueAtRisk: event.details.diagnosis?.lotValueAtRisk,
-                isoClassViolation: 'YES — 2.85 p/m³ exceeds 0.5 p/m³ ISO Class 5 threshold',
+                ...details.diagnosis,
+                recommendedActions: details.recommendedActions,
+                lotValueAtRisk:     details.diagnosis?.lotValueAtRisk,
+                isoClassViolation:  'YES — 2.85 p/m³ exceeds 0.5 p/m³ ISO Class 5 threshold',
               });
             }
             break;
+          }
 
           case 'INVESTIGATION_COMPLETE':
             setDemoState(DEMO_STATES.COMPLETE);
@@ -246,6 +454,8 @@ export default function DemoView() {
             console.error('Demo investigation error:', event.message);
             es.close();
             esRef.current = null;
+            // Server-reported error — fall back to full mock
+            runMockFallback();
             break;
 
           default:
@@ -259,8 +469,10 @@ export default function DemoView() {
     es.onerror = () => {
       es.close();
       esRef.current = null;
+      // Connection failed entirely — run full client-side mock
+      runMockFallback();
     };
-  }, [demoState]);
+  }, [demoState, runMockFallback]);
 
   // ── Handle "Solve Problem" button click ─────────────────────────────────────
   const handleSolve = useCallback(() => {
@@ -276,6 +488,7 @@ export default function DemoView() {
 
   // ── Reset demo (called after DEMO_RESET from Arduino) ───────────────────────
   const resetDemo = useCallback(() => {
+    clearMockTimeouts();
     if (esRef.current) {
       esRef.current.close();
       esRef.current = null;
@@ -286,7 +499,8 @@ export default function DemoView() {
     setDiagnosis(null);
     setSeverity(null);
     setCompletedAgents(0);
-  }, []);
+    setUsedFallback(false);
+  }, [clearMockTimeouts]);
 
   // ── WebSocket connection to serial bridge ────────────────────────────────────
   useEffect(() => {
@@ -311,7 +525,6 @@ export default function DemoView() {
               // Arduino detected contamination — auto-start investigation
               setDemoState(prev => {
                 if (prev === DEMO_STATES.IDLE) {
-                  // Trigger investigation on next tick so state is IDLE when startInvestigation reads it
                   setTimeout(() => startInvestigation(), 0);
                 }
                 return prev;
@@ -336,7 +549,6 @@ export default function DemoView() {
 
       ws.onclose = () => {
         setArduinoConnected(false);
-        // Reconnect after 3s
         setTimeout(connect, 3000);
       };
 
@@ -353,14 +565,12 @@ export default function DemoView() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ── When CONTAMINATION_DETECTED fires from WS, we need startInvestigation ───
-  // Using a ref so the WS handler always sees the latest version
+  // ── Keep WS handler in sync with latest startInvestigation ──────────────────
   const startInvestigationRef = useRef(startInvestigation);
   useEffect(() => {
     startInvestigationRef.current = startInvestigation;
   }, [startInvestigation]);
 
-  // Re-wire WS handler when startInvestigation changes
   useEffect(() => {
     if (!wsRef.current) return;
     const originalOnMessage = wsRef.current.onmessage;
@@ -370,7 +580,6 @@ export default function DemoView() {
         if (msg.type === 'CONTAMINATION_DETECTED' && demoState === DEMO_STATES.IDLE) {
           startInvestigationRef.current();
         } else {
-          // re-call the original handler for all other messages
           originalOnMessage?.(e);
         }
       } catch {
@@ -387,7 +596,7 @@ export default function DemoView() {
 
   const diagnosisWithDetails = diagnosis ? {
     ...diagnosis,
-    lotValueAtRisk:   '~$2.4M',
+    lotValueAtRisk:    diagnosis.lotValueAtRisk ?? '~$2.4M',
     isoClassViolation: 'YES — 2.85 p/m³ exceeds 0.5 p/m³ ISO Class 5 threshold',
   } : null;
 
@@ -404,6 +613,11 @@ export default function DemoView() {
         <div className="demo-header-right">
           <ArduinoStatus connected={arduinoConnected} />
           <LedStrip demoState={demoState} />
+          {usedFallback && (
+            <div style={{ fontSize: '0.6rem', color: '#94a3b8', border: '1px solid #334155', borderRadius: 4, padding: '2px 8px', fontFamily: 'JetBrains Mono, monospace' }}>
+              FALLBACK MODE
+            </div>
+          )}
           {isInvestigating && (
             <div className="demo-progress-badge">
               <span className="spin" style={{ display: 'inline-block', marginRight: 4 }}>⟳</span>
