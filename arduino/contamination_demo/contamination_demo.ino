@@ -79,11 +79,12 @@ const long    DHT_INTERVAL       = 1000;
 unsigned long lastHeartbeat      = 0;
 const long    HEARTBEAT_INTERVAL = 5000;
 
-// ── Buzzer pulsing ────────────────────────────────────────────────────────────
+// ── Buzzer: 2 beeps only, then silence ───────────────────────────────────────
+int           buzzerBeepCount  = 0;   // how many beeps fired so far
 bool          buzzerOn         = false;
 unsigned long lastBuzzerToggle = 0;
-const long    BUZZER_ON_MS     = 300;
-const long    BUZZER_OFF_MS    = 400;
+const long    BUZZER_ON_MS     = 200;
+const long    BUZZER_OFF_MS    = 200;
 
 // ── Zone 4 LED pulsing ───────────────────────────────────────────────────────
 bool          zone4LedOn     = false;
@@ -171,13 +172,20 @@ void loop() {
     handleBtn2();
   }
 
-  // Buzzer pulse (CONTAMINATED only)
-  if (state == CONTAMINATED) {
+  // Buzzer: 2 beeps then silence (CONTAMINATED only)
+  if (state == CONTAMINATED && buzzerBeepCount < 2) {
     long buzzerPeriod = buzzerOn ? BUZZER_ON_MS : BUZZER_OFF_MS;
     if (now - lastBuzzerToggle >= (unsigned long)buzzerPeriod) {
       lastBuzzerToggle = now;
       buzzerOn = !buzzerOn;
       digitalWrite(BUZZER_PIN, buzzerOn ? HIGH : LOW);
+      if (!buzzerOn) {
+        // a full beep (on→off) just completed
+        buzzerBeepCount++;
+        if (buzzerBeepCount >= 2) {
+          digitalWrite(BUZZER_PIN, LOW);  // ensure off
+        }
+      }
     }
 
     // Zone 4 red LED pulse
@@ -329,6 +337,7 @@ void triggerContamination() {
 
   setAllLeds(HIGH);
 
+  buzzerBeepCount = 0;
   buzzerOn = true;
   digitalWrite(BUZZER_PIN, HIGH);
   lastBuzzerToggle = millis();
@@ -362,6 +371,7 @@ void stopFan() {
   digitalWrite(FAN_PIN, LOW);
   digitalWrite(BUZZER_PIN, LOW);
   buzzerOn = false;
+  buzzerBeepCount = 2;  // prevent any further beeps
 
   setAllLeds(HIGH);
   digitalWrite(LED_ZONE4, HIGH);  // solid, not pulsing
@@ -379,6 +389,7 @@ void resetDemo() {
   setAllLeds(LOW);
   digitalWrite(BUZZER_PIN, LOW);
   buzzerOn = false;
+  buzzerBeepCount = 0;
 
   contaminationLevel = 0;
   updateDisplay();  // explicitly clear by drawing 0 level

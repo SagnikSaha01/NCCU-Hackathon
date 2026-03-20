@@ -303,16 +303,22 @@ export default function DemoView() {
   const [completedAgents, setCompletedAgents]   = useState(0);
   const [usedFallback, setUsedFallback]         = useState(false);
 
-  const wsRef                 = useRef(null);
-  const esRef                 = useRef(null);
-  const mockTimeoutsRef       = useRef([]);
-  const investigationDoneRef  = useRef(false); // prevents onerror fallback after clean completion
+  const wsRef                  = useRef(null);
+  const esRef                  = useRef(null);
+  const mockTimeoutsRef        = useRef([]);
+  const investigationDoneRef   = useRef(false);
+  const investigationActiveRef = useRef(false);             // mutex: prevents double-trigger
+  const demoStateRef           = useRef(DEMO_STATES.IDLE);  // always-current demoState for callbacks
+  const startInvestigationRef  = useRef(null);              // set after startInvestigation is defined
 
   // ── Clear any in-progress fallback timers ───────────────────────────────────
   const clearMockTimeouts = useCallback(() => {
     mockTimeoutsRef.current.forEach(clearTimeout);
     mockTimeoutsRef.current = [];
   }, []);
+
+  // Keep demoStateRef in sync so callbacks that can't take demoState as a dep still see current value
+  useEffect(() => { demoStateRef.current = demoState; }, [demoState]);
 
   // ── Send command to Arduino via WebSocket ───────────────────────────────────
   const sendArduinoCommand = useCallback((command) => {
@@ -382,7 +388,10 @@ export default function DemoView() {
 
   // ── Start real agent investigation (Scenario A), with null-field fallback ───
   const startInvestigation = useCallback(() => {
-    if (demoState !== DEMO_STATES.IDLE) return;
+    if (demoStateRef.current !== DEMO_STATES.IDLE) return;
+    if (investigationActiveRef.current) return;
+    investigationActiveRef.current = true;
+    demoStateRef.current = DEMO_STATES.INVESTIGATING;
 
     setDemoState(DEMO_STATES.INVESTIGATING);
     setAgentEvents([]);
@@ -479,7 +488,9 @@ export default function DemoView() {
         runMockFallback();
       }
     };
-  }, [demoState, runMockFallback]);
+  }, [runMockFallback]);
+  // Sync ref immediately (useEffect runs after render; this runs synchronously during render)
+  startInvestigationRef.current = startInvestigation;
 
   // ── Handle "Solve Problem" button click ─────────────────────────────────────
   const handleSolve = useCallback(() => {
@@ -500,6 +511,8 @@ export default function DemoView() {
       esRef.current.close();
       esRef.current = null;
     }
+    investigationActiveRef.current = false;
+    demoStateRef.current = DEMO_STATES.IDLE;
     setDemoState(DEMO_STATES.IDLE);
     setAgentEvents([]);
     setReadings(BASELINE_READINGS);
@@ -572,11 +585,6 @@ export default function DemoView() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ── Keep startInvestigation ref fresh so the WS handler never goes stale ─────
-  const startInvestigationRef = useRef(startInvestigation);
-  useEffect(() => {
-    startInvestigationRef.current = startInvestigation;
-  }, [startInvestigation]);
 
   // ── Derived ──────────────────────────────────────────────────────────────────
   const isInvestigating = demoState === DEMO_STATES.INVESTIGATING;
