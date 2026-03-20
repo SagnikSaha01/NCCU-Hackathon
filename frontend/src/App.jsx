@@ -7,6 +7,7 @@ import Timeline from './components/Timeline.jsx';
 import ScenarioButtons from './components/ScenarioButtons.jsx';
 import AgentFlowMap from './components/AgentFlowMap.jsx';
 import WatchdogView from './components/WatchdogView.jsx';
+import DemoView from './components/DemoView.jsx';
 
 const BASELINE_READINGS = {
   'lithography-bay': { particles: 0.07, trend: 'stable', particleSize: '0.3µm' },
@@ -31,6 +32,7 @@ const VIEWS = [
   { id: 'cleanroom', label: 'Cleanroom Floor', icon: '🏭' },
   { id: 'pipeline',  label: 'Agent Pipeline',  icon: '🔀' },
   { id: 'watchdog',  label: 'Watchdog',        icon: '🔮' },
+  { id: 'demo',      label: 'Live Demo',        icon: '⚡' },
 ];
 
 export default function App() {
@@ -309,6 +311,13 @@ export default function App() {
       {activeView === 'watchdog' && (
         <div className="pipeline-view">
           <WatchdogView />
+        </div>
+      )}
+
+      {/* ─── VIEW: Live Demo (Arduino) ─── */}
+      {activeView === 'demo' && (
+        <div className="pipeline-view">
+          <DemoView />
         </div>
       )}
 

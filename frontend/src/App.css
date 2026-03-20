@@ -1480,3 +1480,422 @@ body {
 .trace-value {
   color: var(--text-secondary);
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   DEMO VIEW — Arduino Live Demo Tab
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.demo-view {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-height: 0;
+  background: var(--bg-dark);
+}
+
+/* ── Header strip ── */
+.demo-header-strip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 20px;
+  background: var(--bg-panel);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.demo-header-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.demo-badge {
+  background: rgba(234,179,8,0.15);
+  border: 1px solid #eab308;
+  color: #eab308;
+  padding: 3px 10px;
+  border-radius: 20px;
+  font-size: 0.68rem;
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  flex-shrink: 0;
+}
+
+.demo-header-title {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.demo-header-sub {
+  font-size: 0.68rem;
+  color: var(--text-muted);
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.demo-header-right {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+/* ── Arduino status ── */
+.demo-arduino-status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.68rem;
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.demo-arduino-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+/* ── LED strip ── */
+.demo-led-strip {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.demo-led-label {
+  font-size: 0.6rem;
+  font-family: 'JetBrains Mono', monospace;
+  color: var(--text-muted);
+  letter-spacing: 0.06em;
+  font-weight: 700;
+}
+
+.demo-leds {
+  display: flex;
+  gap: 10px;
+}
+
+.demo-led-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+}
+
+.demo-led-dot {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  transition: background 0.3s, box-shadow 0.3s;
+}
+
+@keyframes ledPulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.25; }
+}
+
+.demo-led-pulse {
+  animation: ledPulse 0.8s ease-in-out infinite;
+}
+
+.demo-led-zone {
+  font-size: 0.55rem;
+  font-family: 'JetBrains Mono', monospace;
+  color: var(--text-muted);
+}
+
+.demo-led-legend {
+  display: flex;
+  gap: 8px;
+  font-size: 0.6rem;
+  color: var(--text-muted);
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.demo-led-swatch {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-right: 3px;
+  vertical-align: middle;
+}
+
+/* ── Progress / status badges in header ── */
+.demo-progress-badge {
+  background: rgba(234,179,8,0.15);
+  border: 1px solid #eab308;
+  color: #eab308;
+  padding: 3px 10px;
+  border-radius: 20px;
+  font-size: 0.68rem;
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.demo-complete-badge {
+  background: rgba(239,68,68,0.15);
+  border: 1px solid #ef4444;
+  color: #ef4444;
+  padding: 3px 10px;
+  border-radius: 20px;
+  font-size: 0.68rem;
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 700;
+}
+
+.demo-solved-badge {
+  background: rgba(34,197,94,0.15);
+  border: 1px solid #22c55e;
+  color: #22c55e;
+  padding: 3px 10px;
+  border-radius: 20px;
+  font-size: 0.68rem;
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 700;
+}
+
+/* ── Main layout: left (fab map) + right (agent feed) ── */
+.demo-main {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 1fr 440px;
+  overflow: hidden;
+  min-height: 0;
+}
+
+.demo-left {
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid var(--border);
+  overflow: hidden;
+  min-height: 0;
+}
+
+.demo-fab-wrap {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* ── Idle screen ── */
+.demo-idle {
+  flex-shrink: 0;
+  padding: 20px 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  border-top: 1px solid var(--border);
+  background: rgba(14,165,233,0.03);
+}
+
+.demo-idle-icon {
+  font-size: 2rem;
+}
+
+.demo-idle-title {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.demo-idle-sub {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  text-align: center;
+  line-height: 1.5;
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.demo-idle-indicators {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.demo-idle-indicator {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.72rem;
+  color: var(--text-secondary);
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.demo-idle-indicator-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.3; }
+}
+
+.blink {
+  animation: blink 1.2s ease-in-out infinite;
+}
+
+.demo-manual-trigger-btn {
+  margin-top: 8px;
+  padding: 8px 20px;
+  background: rgba(14,165,233,0.12);
+  border: 1px solid var(--accent-blue);
+  border-radius: 8px;
+  color: var(--accent-blue);
+  font-size: 0.75rem;
+  font-family: 'JetBrains Mono', monospace;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.demo-manual-trigger-btn:hover {
+  background: rgba(14,165,233,0.22);
+}
+
+/* ── Solve Problem button ── */
+.demo-solve-wrap {
+  flex-shrink: 0;
+  padding: 16px 24px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background: rgba(239,68,68,0.04);
+}
+
+.demo-solve-label {
+  font-size: 0.72rem;
+  font-family: 'JetBrains Mono', monospace;
+  color: #f97316;
+  font-weight: 600;
+}
+
+.demo-solve-btn {
+  padding: 12px 24px;
+  background: rgba(239,68,68,0.15);
+  border: 1.5px solid #ef4444;
+  border-radius: 8px;
+  color: #ef4444;
+  font-size: 0.85rem;
+  font-weight: 700;
+  font-family: 'Inter', sans-serif;
+  cursor: pointer;
+  transition: all 0.2s;
+  letter-spacing: 0.01em;
+}
+
+.demo-solve-btn:hover:not(:disabled) {
+  background: rgba(239,68,68,0.28);
+  box-shadow: 0 0 20px rgba(239,68,68,0.3);
+}
+
+.demo-solve-btn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.demo-solve-btn-solving {
+  border-color: #eab308;
+  color: #eab308;
+  background: rgba(234,179,8,0.12);
+}
+
+.demo-solve-sub {
+  font-size: 0.65rem;
+  color: var(--text-muted);
+  font-family: 'JetBrains Mono', monospace;
+}
+
+/* ── Solved banner ── */
+.demo-solved-banner {
+  flex-shrink: 0;
+  margin: 16px 24px;
+  padding: 14px 18px;
+  background: rgba(34,197,94,0.09);
+  border: 1px solid rgba(34,197,94,0.4);
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.demo-solved-icon {
+  font-size: 1.6rem;
+  color: #22c55e;
+  flex-shrink: 0;
+}
+
+.demo-solved-title {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #22c55e;
+  margin-bottom: 4px;
+}
+
+.demo-solved-sub {
+  font-size: 0.7rem;
+  color: var(--text-secondary);
+  font-family: 'JetBrains Mono', monospace;
+  line-height: 1.5;
+}
+
+/* ── Right panel ── */
+.demo-right {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-height: 0;
+}
+
+.demo-right-tabs {
+  display: flex;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.demo-right-tab {
+  padding: 10px 16px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border-bottom: 2px solid transparent;
+  cursor: default;
+}
+
+.demo-right-tab.active {
+  color: var(--accent-blue);
+  border-bottom-color: var(--accent-blue);
+}
+
+.demo-right-content {
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
+}
+
+/* ── Diagnosis section inside right panel ── */
+.demo-diagnosis-section {
+  border-top: 1px solid var(--border);
+}
+
+.demo-diagnosis-divider {
+  text-align: center;
+  font-size: 0.65rem;
+  font-family: 'JetBrains Mono', monospace;
+  color: var(--text-muted);
+  padding: 10px 0 6px;
+  letter-spacing: 0.06em;
+}
